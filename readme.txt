@@ -1,6 +1,6 @@
-=== WooCommerce Flexion Gateway ===
-Contributors: sinappsus, jacques artgraven, Flexion
-Tags: credit card, Flexion, payment request, woocommerce, teljoy
+=== WooCommerce Flexiown Gateway ===
+Contributors: sinappsus, jacques artgraven, Flexiown
+Tags: credit card, Flexiown, payment request, woocommerce, teljoy
 Requires at least: 6.0
 Tested up to: 6.0
 Requires PHP: 7.4
@@ -12,18 +12,18 @@ This is the official WooCommerce extension to process payments using the South A
 
 == Description ==
 
-The Flexion extension for WooCommerce enables you to transact via the Flexion Gateway, via one of South Africa’s most trusted providers.
+The Flexiown extension for WooCommerce enables you to transact via the Flexiown Gateway, via one of South Africa’s most trusted providers.
 An approved account with Flexiown is required for this.
 
-= Why choose Flexion? =
+= Why choose Flexiown? =
 
-Flexion gives your customers more flexibility by allowing them to rent the product and return it when they desired while you get settled in full. Beyond Settling once off payments
+Flexiown gives your customers more flexibility by allowing them to rent the product and return it when they desired while you get settled in full. Beyond Settling once off payments
 
 == Frequently Asked Questions ==
 
-= Does this require a Flexion merchant account? =
+= Does this require a Flexiown merchant account? =
 
-Yes! A Flexion merchant account, merchant key and merchant ID are required for this gateway to function.
+Yes! A Flexiown merchant account, merchant key and merchant ID are required for this gateway to function.
 
 = Does this require an SSL certificate? =
 
@@ -35,7 +35,7 @@ For help setting up and configuring, please refer to our [user guide](#)
 
 = Where can I get support or talk to other users? =
 
-If you get stuck, you can contact support@Flexion.co.za
+If you get stuck, you can contact hello@teljoy.co.za
 
 == Changelog ==
 = 2.0.0 - 2025-08-20 =
