@@ -61,6 +61,13 @@ final class WC_Gateway_Flexiown_Blocks_Support extends AbstractPaymentMethodType
     }
 
     /**
+     * Helper to determine if onboarding fields are enabled.
+     */
+    private function onboarding_enabled() {
+        return $this->gateway && method_exists($this->gateway, 'is_onboarding_enabled') && $this->gateway->is_onboarding_enabled();
+    }
+
+    /**
      * Returns if this payment method should be active. If false, the scripts will not be enqueued.
      */
     public function is_active() {
@@ -115,6 +122,7 @@ final class WC_Gateway_Flexiown_Blocks_Support extends AbstractPaymentMethodType
                 'maritalStatus'   => $this->format_select_options($this->gateway ? $this->gateway->get_marital_status_options() : []),
                 'kinRelationship' => $this->format_select_options($this->gateway ? $this->gateway->get_relationship_options() : []),
             ],
+            'onboardingEnabled' => $this->onboarding_enabled(),
         ];
     }
 
@@ -179,6 +187,7 @@ final class WC_Gateway_Flexiown_Blocks_Support extends AbstractPaymentMethodType
                     'salary'                    => $string_schema(__('Monthly salary, numbers only.', 'flexiown')),
                     'isUnderDebtReview'         => $string_schema(__('Debt review selection.', 'flexiown')),
                     'registrationDocumentNumber'=> $string_schema(__('Registration or ID number.', 'flexiown')),
+                    'mobileNumber'              => $string_schema(__('Mobile number Flexiown can contact.', 'flexiown')),
                     'employerName'              => $string_schema(__('Employer name.', 'flexiown')),
                     'employerContact'           => $string_schema(__('Employer contact number.', 'flexiown')),
                     'maritalStatus'             => $string_schema(__('Marital status option.', 'flexiown')),
@@ -194,6 +203,12 @@ final class WC_Gateway_Flexiown_Blocks_Support extends AbstractPaymentMethodType
      * Provide initial data for the Store API payload.
      */
     public function get_extension_data() {
+        if (! $this->onboarding_enabled()) {
+            return [
+                self::EXTENSION_DATA_KEY => $this->get_field_defaults(),
+            ];
+        }
+
         return [
             self::EXTENSION_DATA_KEY => $this->get_extension_session_state(),
         ];
@@ -203,6 +218,11 @@ final class WC_Gateway_Flexiown_Blocks_Support extends AbstractPaymentMethodType
      * Handle cart/extensions updates to persist user input.
      */
     public function handle_extension_update($data) {
+        if (! $this->onboarding_enabled()) {
+            $this->set_extension_session_state($this->get_field_defaults());
+            return;
+        }
+
         if (empty($data[self::EXTENSION_DATA_KEY]) || ! is_array($data[self::EXTENSION_DATA_KEY])) {
             return;
         }
@@ -233,6 +253,10 @@ final class WC_Gateway_Flexiown_Blocks_Support extends AbstractPaymentMethodType
             return;
         }
 
+        if (! $this->onboarding_enabled()) {
+            return;
+        }
+
         $extensions = $this->extract_extensions_payload($request);
         $payload    = [];
 
@@ -258,6 +282,7 @@ final class WC_Gateway_Flexiown_Blocks_Support extends AbstractPaymentMethodType
         $field_map = [
             '_flexiown_salary'                       => $sanitized['salary'],
             '_flexiown_registration_document_number' => $sanitized['registrationDocumentNumber'],
+            '_flexiown_mobile_number'                => $sanitized['mobileNumber'],
             '_flexiown_employer_name'                => $sanitized['employerName'],
             '_flexiown_employer_contact'             => $sanitized['employerContact'],
             '_flexiown_next_of_kin_name'             => $sanitized['nextOfKinName'],
@@ -287,6 +312,10 @@ final class WC_Gateway_Flexiown_Blocks_Support extends AbstractPaymentMethodType
      * Check whether at least one extension field contains a value.
      */
     private function has_extension_data($payload) {
+        if (! $this->onboarding_enabled()) {
+            return false;
+        }
+
         if (! is_array($payload)) {
             return false;
         }
@@ -323,6 +352,7 @@ final class WC_Gateway_Flexiown_Blocks_Support extends AbstractPaymentMethodType
             'salary'                    => '',
             'isUnderDebtReview'         => '',
             'registrationDocumentNumber'=> '',
+            'mobileNumber'              => $this->get_default_mobile_number(),
             'employerName'              => '',
             'employerContact'           => '',
             'maritalStatus'             => '',
@@ -332,11 +362,23 @@ final class WC_Gateway_Flexiown_Blocks_Support extends AbstractPaymentMethodType
         ];
     }
 
+    private function get_default_mobile_number() {
+        if ($this->gateway && method_exists($this->gateway, 'get_default_mobile_number')) {
+            return $this->gateway->get_default_mobile_number();
+        }
+
+        return '';
+    }
+
     /**
      * Fetch the persisted data from the WooCommerce session.
      */
     private function get_extension_session_state() {
         $defaults = $this->get_field_defaults();
+
+        if (! $this->onboarding_enabled()) {
+            return $defaults;
+        }
 
         if (! function_exists('WC') || ! WC()->session) {
             return $defaults;
@@ -358,7 +400,9 @@ final class WC_Gateway_Flexiown_Blocks_Support extends AbstractPaymentMethodType
             return;
         }
 
-        WC()->session->set(self::SESSION_KEY, $data);
+        $payload = $this->onboarding_enabled() ? $data : $this->get_field_defaults();
+
+        WC()->session->set(self::SESSION_KEY, $payload);
     }
 
     /**
@@ -366,15 +410,28 @@ final class WC_Gateway_Flexiown_Blocks_Support extends AbstractPaymentMethodType
      */
     private function sanitize_extension_data($data) {
         $defaults = $this->get_field_defaults();
+        if (! $this->onboarding_enabled()) {
+            return $defaults;
+        }
+
         $data     = is_array($data) ? array_merge($defaults, array_intersect_key($data, $defaults)) : $defaults;
 
         $data['salary'] = $this->sanitize_salary($data['salary']);
-        $data['registrationDocumentNumber'] = sanitize_text_field($data['registrationDocumentNumber']);
+        $data['registrationDocumentNumber'] = $this->gateway && method_exists($this->gateway, 'sanitize_id_value')
+            ? $this->gateway->sanitize_id_value($data['registrationDocumentNumber'])
+            : sanitize_text_field($data['registrationDocumentNumber']);
         $data['employerName'] = sanitize_text_field($data['employerName']);
         $data['nextOfKinName'] = sanitize_text_field($data['nextOfKinName']);
+        $data['mobileNumber'] = $this->gateway && method_exists($this->gateway, 'sanitize_phone_value')
+            ? $this->gateway->sanitize_phone_value($data['mobileNumber'])
+            : sanitize_text_field($data['mobileNumber']);
 
-        $data['employerContact'] = $this->gateway ? $this->gateway->sanitize_phone_value($data['employerContact']) : sanitize_text_field($data['employerContact']);
-        $data['nextOfKinContact'] = $this->gateway ? $this->gateway->sanitize_phone_value($data['nextOfKinContact']) : sanitize_text_field($data['nextOfKinContact']);
+        $data['employerContact'] = $this->gateway && method_exists($this->gateway, 'sanitize_phone_value')
+            ? $this->gateway->sanitize_phone_value($data['employerContact'])
+            : sanitize_text_field($data['employerContact']);
+        $data['nextOfKinContact'] = $this->gateway && method_exists($this->gateway, 'sanitize_phone_value')
+            ? $this->gateway->sanitize_phone_value($data['nextOfKinContact'])
+            : sanitize_text_field($data['nextOfKinContact']);
 
         $data['isUnderDebtReview'] = $this->sanitize_select_value($data['isUnderDebtReview'], $this->gateway ? $this->gateway->get_debt_review_options() : []);
         $data['maritalStatus'] = $this->sanitize_select_value($data['maritalStatus'], $this->gateway ? $this->gateway->get_marital_status_options() : []);
@@ -410,6 +467,13 @@ final class WC_Gateway_Flexiown_Blocks_Support extends AbstractPaymentMethodType
     public function handle_rest_extension_update($request) {
         if (! $request instanceof WP_REST_Request) {
             return rest_ensure_response(['success' => false]);
+        }
+
+        if (! $this->onboarding_enabled()) {
+            $this->set_extension_session_state($this->get_field_defaults());
+            return rest_ensure_response([
+                'success' => true,
+            ]);
         }
 
         $raw      = $this->normalize_request_payload($request->get_param(self::EXTENSION_DATA_KEY));

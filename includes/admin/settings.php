@@ -32,6 +32,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
     protected $flexiown_headers;
     protected $logger;
     public $flexiown_logger;
+    protected $enable_onboarding_checkout;
     public static $log = true;
     public static $log_enabled = false;
 
@@ -62,6 +63,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         $this->enable_product_widget          = 'yes' === $this->get_option('enable_product_widget');
         $this->flexiown_stock_hold            = $this->get_option('flexiown_stock_hold') ?? 10080;
         $this->enable_cart_warnings           = $this->get_option('enable_cart_warnings');
+        $this->enable_onboarding_checkout     = 'yes' === $this->get_option('enable_onboarding_checkout', 'no');
 
         //setup admin area
         $this->init_form_fields();
@@ -177,6 +179,33 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         return isset($_POST['payment_method']) && 'flexiown' === $_POST['payment_method'];
     }
 
+    public function is_onboarding_enabled()
+    {
+        return (bool) $this->enable_onboarding_checkout;
+    }
+
+    public function get_default_mobile_number()
+    {
+        $candidates = array();
+
+        if (isset($_POST['billing_phone'])) {
+            $candidates[] = wc_clean(wp_unslash($_POST['billing_phone']));
+        }
+
+        if (function_exists('WC') && WC()->customer) {
+            $candidates[] = WC()->customer->get_billing_phone();
+        }
+
+        foreach ($candidates as $candidate) {
+            $normalized = $this->sanitize_phone_value($candidate);
+            if ($normalized !== '') {
+                return $normalized;
+            }
+        }
+
+        return '';
+    }
+
     public function is_valid_phone_value($value)
     {
         $value = trim((string)$value);
@@ -231,7 +260,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
     public function enqueue_flexiown_checkout_assets()
     {
-        if (is_admin() || 'yes' !== $this->enabled) {
+        if (is_admin() || 'yes' !== $this->enabled || !$this->is_onboarding_enabled()) {
             return;
         }
 
@@ -250,9 +279,20 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
     public function render_flexiown_checkout_fields($checkout)
     {
-        if ('yes' !== $this->enabled) {
+        if ('yes' !== $this->enabled || !$this->is_onboarding_enabled()) {
             return;
         }
+
+        $mobile_prefill = $checkout->get_value('flexiown_mobile_number');
+        if ('' === $mobile_prefill || null === $mobile_prefill) {
+            $billing_phone = $checkout->get_value('billing_phone');
+            if (!empty($billing_phone)) {
+                $mobile_prefill = $billing_phone;
+            } else {
+                $mobile_prefill = $this->get_default_mobile_number();
+            }
+        }
+        $mobile_prefill = $this->sanitize_phone_value($mobile_prefill);
 
         echo '<div id="flexiown-extra-fields" class="flexiown-extra-fields" style="display:none">';
         echo '<h3>' . esc_html__('Flexiown application details', 'flexiown') . '</h3>';
@@ -261,39 +301,58 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         woocommerce_form_field('flexiown_salary', array(
             'type' => 'text',
             'label' => __('Monthly salary', 'flexiown'),
-            'required' => false,
+            'required' => true,
             'input_class' => array('flexiown-field'),
             'custom_attributes' => array('inputmode' => 'decimal', 'autocomplete' => 'off'),
-            'description' => __('Numbers only, optional.', 'flexiown'),
+            'description' => __('Numbers only. Required for Flexiown screening.', 'flexiown'),
         ), $checkout->get_value('flexiown_salary'));
 
         woocommerce_form_field('flexiown_is_under_debt_review', array(
             'type' => 'select',
             'label' => __('Currently under debt review?', 'flexiown'),
-            'required' => false,
+            'required' => true,
             'options' => $this->get_debt_review_options(),
         ), $checkout->get_value('flexiown_is_under_debt_review'));
 
         woocommerce_form_field('flexiown_registration_document_number', array(
             'type' => 'text',
             'label' => __('Registration / ID number', 'flexiown'),
-            'required' => false,
+            'required' => true,
             'input_class' => array('flexiown-field'),
+            'custom_attributes' => array(
+                'maxlength' => 13,
+                'inputmode' => 'numeric',
+                'autocomplete' => 'off',
+            ),
+            'description' => __('13 digits. Required.', 'flexiown'),
         ), $checkout->get_value('flexiown_registration_document_number'));
+
+        woocommerce_form_field('flexiown_mobile_number', array(
+            'type' => 'text',
+            'label' => __('Mobile number', 'flexiown'),
+            'required' => true,
+            'input_class' => array('flexiown-field'),
+            'description' => __('Digits only (10-15). Country code optional.', 'flexiown'),
+            'custom_attributes' => array(
+                'inputmode' => 'tel',
+                'maxlength' => 15,
+                'autocomplete' => 'tel',
+            ),
+        ), $mobile_prefill);
 
         echo '<hr />';
 
         woocommerce_form_field('flexiown_employer_name', array(
             'type' => 'text',
             'label' => __('Employer name', 'flexiown'),
-            'required' => false,
+            'required' => true,
             'input_class' => array('flexiown-field'),
         ), $checkout->get_value('flexiown_employer_name'));
 
         woocommerce_form_field('flexiown_employer_contact_number', array(
             'type' => 'text',
             'label' => __('Employer contact number', 'flexiown'),
-            'required' => false,
+            'required' => true,
             'input_class' => array('flexiown-field'),
             'description' => __('Include country code if available.', 'flexiown'),
         ), $checkout->get_value('flexiown_employer_contact_number'));
@@ -301,7 +360,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         woocommerce_form_field('flexiown_marital_status', array(
             'type' => 'select',
             'label' => __('Marital status', 'flexiown'),
-            'required' => false,
+            'required' => true,
             'options' => $this->get_marital_status_options(),
         ), $checkout->get_value('flexiown_marital_status'));
 
@@ -310,21 +369,21 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         woocommerce_form_field('flexiown_next_of_kin_name', array(
             'type' => 'text',
             'label' => __('Next of kin name', 'flexiown'),
-            'required' => false,
+            'required' => true,
             'input_class' => array('flexiown-field'),
         ), $checkout->get_value('flexiown_next_of_kin_name'));
 
         woocommerce_form_field('flexiown_next_of_kin_contact_number', array(
             'type' => 'text',
             'label' => __('Next of kin contact number', 'flexiown'),
-            'required' => false,
+            'required' => true,
             'input_class' => array('flexiown-field'),
         ), $checkout->get_value('flexiown_next_of_kin_contact_number'));
 
         woocommerce_form_field('flexiown_next_of_kin_relationship', array(
             'type' => 'select',
             'label' => __('Next of kin relationship', 'flexiown'),
-            'required' => false,
+            'required' => true,
             'options' => $this->get_relationship_options(),
         ), $checkout->get_value('flexiown_next_of_kin_relationship'));
 
@@ -333,53 +392,45 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
     public function validate_flexiown_checkout_fields()
     {
-        if (!$this->is_flexiown_payment_selected()) {
+        if (!$this->is_onboarding_enabled() || !$this->is_flexiown_payment_selected()) {
             return;
         }
 
-        $salary = isset($_POST['flexiown_salary']) ? wc_clean(wp_unslash($_POST['flexiown_salary'])) : '';
-        if ($salary !== '') {
-            $normalized_salary = preg_replace('/[^0-9.]/', '', $salary);
-            if ($normalized_salary === '' || !is_numeric($normalized_salary) || (float)$normalized_salary < 0) {
-                wc_add_notice(__('Please enter a valid numeric salary amount.', 'flexiown'), 'error');
-            }
-        }
+        $salary_input = isset($_POST['flexiown_salary']) ? wc_clean(wp_unslash($_POST['flexiown_salary'])) : '';
+        $normalized_salary = $salary_input !== '' ? preg_replace('/[^0-9.]/', '', $salary_input) : '';
 
         $debt_value = isset($_POST['flexiown_is_under_debt_review']) ? sanitize_text_field(wp_unslash($_POST['flexiown_is_under_debt_review'])) : '';
-        $debt_options = array_keys($this->get_debt_review_options());
-        if ($debt_value !== '' && !in_array($debt_value, $debt_options, true)) {
-            wc_add_notice(__('Please select a valid debt review option.', 'flexiown'), 'error');
-        }
-
-        $id_number = isset($_POST['flexiown_registration_document_number']) ? wc_clean(wp_unslash($_POST['flexiown_registration_document_number'])) : '';
-        if ($id_number !== '' && !$this->is_valid_id_value($id_number)) {
-            wc_add_notice(__('Registration / ID number must contain exactly 13 digits.', 'flexiown'), 'error');
-        }
-
-        $employer_phone = isset($_POST['flexiown_employer_contact_number']) ? wc_clean(wp_unslash($_POST['flexiown_employer_contact_number'])) : '';
-        if (!$this->is_valid_phone_value($employer_phone)) {
-            wc_add_notice(__('Employer contact number must contain 10-15 digits and may include digits, spaces, plus, parentheses or hyphen characters.', 'flexiown'), 'error');
-        }
-
-        $kin_phone = isset($_POST['flexiown_next_of_kin_contact_number']) ? wc_clean(wp_unslash($_POST['flexiown_next_of_kin_contact_number'])) : '';
-        if (!$this->is_valid_phone_value($kin_phone)) {
-            wc_add_notice(__('Next of kin contact number must contain 10-15 digits and may include digits, spaces, plus, parentheses or hyphen characters.', 'flexiown'), 'error');
-        }
-
+        $id_number = isset($_POST['flexiown_registration_document_number']) ? $this->sanitize_id_value(wc_clean(wp_unslash($_POST['flexiown_registration_document_number']))) : '';
+        $mobile_number = isset($_POST['flexiown_mobile_number']) ? $this->sanitize_phone_value(wc_clean(wp_unslash($_POST['flexiown_mobile_number']))) : '';
+        $employer_phone = isset($_POST['flexiown_employer_contact_number']) ? $this->sanitize_phone_value(wc_clean(wp_unslash($_POST['flexiown_employer_contact_number']))) : '';
+        $kin_phone = isset($_POST['flexiown_next_of_kin_contact_number']) ? $this->sanitize_phone_value(wc_clean(wp_unslash($_POST['flexiown_next_of_kin_contact_number']))) : '';
+        $employer_name = isset($_POST['flexiown_employer_name']) ? sanitize_text_field(wp_unslash($_POST['flexiown_employer_name'])) : '';
+        $next_of_kin_name = isset($_POST['flexiown_next_of_kin_name']) ? sanitize_text_field(wp_unslash($_POST['flexiown_next_of_kin_name'])) : '';
         $marital = isset($_POST['flexiown_marital_status']) ? sanitize_text_field(wp_unslash($_POST['flexiown_marital_status'])) : '';
-        if ($marital !== '' && !array_key_exists($marital, $this->get_marital_status_options())) {
-            wc_add_notice(__('Please choose a valid marital status.', 'flexiown'), 'error');
-        }
-
         $relationship = isset($_POST['flexiown_next_of_kin_relationship']) ? sanitize_text_field(wp_unslash($_POST['flexiown_next_of_kin_relationship'])) : '';
-        if ($relationship !== '' && !array_key_exists($relationship, $this->get_relationship_options())) {
-            wc_add_notice(__('Please choose a valid next of kin relationship.', 'flexiown'), 'error');
+
+        $dataset = array(
+            'salary' => $normalized_salary,
+            'debt_review' => $debt_value,
+            'registration_document_number' => $id_number,
+            'mobile_number' => $mobile_number,
+            'employer_name' => $employer_name,
+            'employer_contact' => $employer_phone,
+            'next_of_kin_name' => $next_of_kin_name,
+            'next_of_kin_contact' => $kin_phone,
+            'marital_status' => $marital,
+            'relationship' => $relationship,
+        );
+
+        $errors = $this->get_onboarding_validation_errors($dataset);
+        foreach ($errors as $error) {
+            wc_add_notice($error, 'error');
         }
     }
 
     public function save_flexiown_checkout_fields($order_id)
     {
-        if (!$this->is_flexiown_payment_selected()) {
+        if (!$this->is_onboarding_enabled() || !$this->is_flexiown_payment_selected()) {
             return;
         }
 
@@ -392,6 +443,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         $field_map = array(
             '_flexiown_salary' => isset($_POST['flexiown_salary']) ? preg_replace('/[^0-9.]/', '', wc_clean(wp_unslash($_POST['flexiown_salary']))) : '',
             '_flexiown_registration_document_number' => isset($_POST['flexiown_registration_document_number']) ? $this->sanitize_id_value(wc_clean(wp_unslash($_POST['flexiown_registration_document_number']))) : '',
+            '_flexiown_mobile_number' => isset($_POST['flexiown_mobile_number']) ? $this->sanitize_phone_value(wc_clean(wp_unslash($_POST['flexiown_mobile_number']))) : '',
             '_flexiown_employer_name' => isset($_POST['flexiown_employer_name']) ? wc_clean(wp_unslash($_POST['flexiown_employer_name'])) : '',
             '_flexiown_employer_contact' => isset($_POST['flexiown_employer_contact_number']) ? $this->sanitize_phone_value(wc_clean(wp_unslash($_POST['flexiown_employer_contact_number']))) : '',
             '_flexiown_next_of_kin_name' => isset($_POST['flexiown_next_of_kin_name']) ? wc_clean(wp_unslash($_POST['flexiown_next_of_kin_name'])) : '',
@@ -416,6 +468,80 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         }
 
         $order->save();
+    }
+
+    private function get_onboarding_validation_errors($data)
+    {
+        $errors = array();
+
+        $salary = isset($data['salary']) ? $data['salary'] : '';
+        if ($salary === '') {
+            $errors[] = __('Please enter your monthly salary.', 'flexiown');
+        } elseif (!is_numeric($salary) || (float)$salary <= 0) {
+            $errors[] = __('Salary must be a positive numeric value.', 'flexiown');
+        }
+
+        $debt_value = isset($data['debt_review']) ? $data['debt_review'] : '';
+        $debt_options = array_keys($this->get_debt_review_options());
+        if ($debt_value === '') {
+            $errors[] = __('Please select whether you are currently under debt review.', 'flexiown');
+        } elseif (!in_array($debt_value, $debt_options, true)) {
+            $errors[] = __('Please select a valid debt review option.', 'flexiown');
+        }
+
+        $mobile_number = isset($data['mobile_number']) ? $data['mobile_number'] : '';
+        if ($mobile_number === '') {
+            $errors[] = __('Please provide a mobile number for Flexiown to contact you.', 'flexiown');
+        } elseif (!$this->is_valid_phone_value($mobile_number)) {
+            $errors[] = __('Mobile number must contain 10-15 digits and may include digits, spaces, plus, parentheses or hyphen characters.', 'flexiown');
+        }
+
+        $id_number = isset($data['registration_document_number']) ? $data['registration_document_number'] : '';
+        if ($id_number === '') {
+            $errors[] = __('Registration / ID number is required.', 'flexiown');
+        } elseif (!$this->is_valid_id_value($id_number)) {
+            $errors[] = __('Registration / ID number must contain exactly 13 digits.', 'flexiown');
+        }
+
+        $employer_name = isset($data['employer_name']) ? trim((string)$data['employer_name']) : '';
+        if ($employer_name === '') {
+            $errors[] = __('Employer name is required.', 'flexiown');
+        }
+
+        $employer_contact = isset($data['employer_contact']) ? $data['employer_contact'] : '';
+        if ($employer_contact === '') {
+            $errors[] = __('Employer contact number is required.', 'flexiown');
+        } elseif (!$this->is_valid_phone_value($employer_contact)) {
+            $errors[] = __('Employer contact number must contain 10-15 digits and may include digits, spaces, plus, parentheses or hyphen characters.', 'flexiown');
+        }
+
+        $next_of_kin_name = isset($data['next_of_kin_name']) ? trim((string)$data['next_of_kin_name']) : '';
+        if ($next_of_kin_name === '') {
+            $errors[] = __('Next of kin name is required.', 'flexiown');
+        }
+
+        $kin_contact = isset($data['next_of_kin_contact']) ? $data['next_of_kin_contact'] : '';
+        if ($kin_contact === '') {
+            $errors[] = __('Next of kin contact number is required.', 'flexiown');
+        } elseif (!$this->is_valid_phone_value($kin_contact)) {
+            $errors[] = __('Next of kin contact number must contain 10-15 digits and may include digits, spaces, plus, parentheses or hyphen characters.', 'flexiown');
+        }
+
+        $marital = isset($data['marital_status']) ? $data['marital_status'] : '';
+        if ($marital === '') {
+            $errors[] = __('Please choose a marital status.', 'flexiown');
+        } elseif (!array_key_exists($marital, $this->get_marital_status_options())) {
+            $errors[] = __('Please choose a valid marital status.', 'flexiown');
+        }
+
+        $relationship = isset($data['relationship']) ? $data['relationship'] : '';
+        if ($relationship === '') {
+            $errors[] = __('Please choose a next of kin relationship.', 'flexiown');
+        } elseif (!array_key_exists($relationship, $this->get_relationship_options())) {
+            $errors[] = __('Please choose a valid next of kin relationship.', 'flexiown');
+        }
+
+        return $errors;
     }
 
 
@@ -561,6 +687,13 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
                 'type'    => 'checkbox',
                 'label'   => __('Enable transaction logging for gateway.', 'woocommerce-gateway-flexiown'),
                 'default' => 'no',
+            ),
+            'enable_onboarding_checkout' => array(
+                'title'       => __('Enable onboarding at checkout', 'woocommerce-gateway-flexiown'),
+                'type'        => 'checkbox',
+                'label'       => __('Capture Flexiown onboarding fields during checkout.', 'woocommerce-gateway-flexiown'),
+                'description' => __('When disabled, onboarding fields are hidden, skipped during validation, and removed from Flexiown payloads.', 'woocommerce-gateway-flexiown'),
+                'default'     => 'no',
             ),
             'enable_product_barcode' => array(
                 'title'   => __('Enable Product Barcode', 'woocommerce-gateway-flexiown'),
@@ -814,7 +947,13 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             $order = new WC_Order($order_id);
         }
 
-        $this->maybe_backfill_blocks_session_data($order);
+        $backfill_result = $this->maybe_backfill_blocks_session_data($order);
+        if (is_wp_error($backfill_result)) {
+            return array(
+                'result' => 'failure',
+                'redirect' => $order->get_checkout_payment_url(true)
+            );
+        }
 
         //Process here
         $orderitems = $order->get_items();
@@ -913,6 +1052,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         $salary_meta = $this->get_order_meta_value($order, '_flexiown_salary');
         $debt_review_meta = $this->get_order_meta_value($order, '_flexiown_is_under_debt_review');
         $registration_meta = $this->get_order_meta_value($order, '_flexiown_registration_document_number');
+        $mobile_meta = $this->get_order_meta_value($order, '_flexiown_mobile_number');
 
         $employer_name = $this->get_order_meta_value($order, '_flexiown_employer_name');
         $employer_contact = $this->get_order_meta_value($order, '_flexiown_employer_contact');
@@ -926,11 +1066,14 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             'first_name' => sanitize_text_field($order->billing_first_name),
             'last_name' => sanitize_text_field($order->billing_last_name),
             'email' => sanitize_email($order->billing_email),
-            'mobile' => sanitize_text_field($order->billing_phone),
-            'salary' => $salary_meta !== '' ? $salary_meta : null,
-            'is_under_debt_review' => $debt_review_meta === '' ? null : ('yes' === $debt_review_meta),
-            'registration_document_number' => $registration_meta !== '' ? $registration_meta : null
+            'mobile' => $mobile_meta !== '' ? $mobile_meta : sanitize_text_field($order->billing_phone),
         );
+
+        if ($this->is_onboarding_enabled()) {
+            $customer_data['salary'] = $salary_meta !== '' ? $salary_meta : null;
+            $customer_data['is_under_debt_review'] = $debt_review_meta === '' ? null : ('yes' === $debt_review_meta);
+            $customer_data['registration_document_number'] = $registration_meta !== '' ? $registration_meta : null;
+        }
 
         // Sanitize shipping address
         $shipping_address = array(
@@ -991,14 +1134,17 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         );
 
         //New fields
-        $personal_data = array(
-            'employerName' => $employer_name !== '' ? $employer_name : null,
-            'employerContactNumber' => $employer_contact !== '' ? $employer_contact : null,
-            'nextOfKinName' => $next_of_kin_name !== '' ? $next_of_kin_name : null,
-            'nextOfKinContactNumber' => $next_of_kin_contact !== '' ? $next_of_kin_contact : null,
-            'maritalStatus' => $marital_status_meta !== '' && array_key_exists($marital_status_meta, $this->get_marital_status_options()) ? (int)$marital_status_meta : null,
-            'nextOfKinRelationshipType' => $relationship_meta !== '' && array_key_exists($relationship_meta, $this->get_relationship_options()) ? (int)$relationship_meta : null,
-        );
+        $personal_data = null;
+        if ($this->is_onboarding_enabled()) {
+            $personal_data = array(
+                'employerName' => $employer_name !== '' ? $employer_name : null,
+                'employerContactNumber' => $employer_contact !== '' ? $employer_contact : null,
+                'nextOfKinName' => $next_of_kin_name !== '' ? $next_of_kin_name : null,
+                'nextOfKinContactNumber' => $next_of_kin_contact !== '' ? $next_of_kin_contact : null,
+                'maritalStatus' => $marital_status_meta !== '' && array_key_exists($marital_status_meta, $this->get_marital_status_options()) ? (int)$marital_status_meta : null,
+                'nextOfKinRelationshipType' => $relationship_meta !== '' && array_key_exists($relationship_meta, $this->get_relationship_options()) ? (int)$relationship_meta : null,
+            );
+        }
 
         /*
             const maritalStatusOptions = [
@@ -1025,8 +1171,11 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             'billing_address' => $billing_address,
             'products' => $items, // This is already an array from build_product_list()
             'redirects' => $redirects,
-            'personal' => $personal_data
         );
+
+        if ($this->is_onboarding_enabled()) {
+            $order_data['personal'] = $personal_data;
+        }
 
         // Return JSON exactly as before but now securely encoded
         return json_encode($order_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -1039,19 +1188,32 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
      */
     private function maybe_backfill_blocks_session_data($order)
     {
+        if (!$this->is_onboarding_enabled()) {
+            return true;
+        }
+
         if (!function_exists('WC') || !WC()->session) {
-            return;
+            return true;
         }
 
         $session_data = WC()->session->get('flexiown_extension_data', []);
         if (!is_array($session_data) || empty($session_data)) {
-            return;
+            if ($this->order_has_complete_onboarding_meta($order)) {
+                return true;
+            }
+
+            wc_add_notice(__('Please complete the Flexiown onboarding fields before placing your order.', 'flexiown'), 'error');
+            return new WP_Error(
+                'flexiown_missing_blocks_data',
+                __('Please complete the Flexiown onboarding details before placing your order.', 'flexiown')
+            );
         }
 
         $defaults = array(
             'salary' => '',
             'isUnderDebtReview' => '',
             'registrationDocumentNumber' => '',
+            'mobileNumber' => '',
             'employerName' => '',
             'employerContact' => '',
             'nextOfKinName' => '',
@@ -1071,7 +1233,12 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         }
 
         if (!$has_value) {
-            return;
+            if ($this->order_has_complete_onboarding_meta($order)) {
+                return true;
+            }
+
+            wc_add_notice(__('Please complete the Flexiown onboarding fields before placing your order.', 'flexiown'), 'error');
+            return new WP_Error('flexiown_missing_blocks_data', __('Please complete the Flexiown onboarding details before placing your order.', 'flexiown'));
         }
 
         $this->flexiown_log('Flexiown Blocks session snapshot: ' . print_r($session_data, true), false);
@@ -1092,22 +1259,43 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             $registration_value = '';
         }
 
+        $employer_name = sanitize_text_field($session_data['employerName']);
+        $next_of_kin_name = sanitize_text_field($session_data['nextOfKinName']);
         $employer_contact = $this->sanitize_phone_value($session_data['employerContact']);
-        if ($employer_contact !== '' && strlen($employer_contact) < 10) {
-            $employer_contact = '';
-        }
-
         $kin_contact = $this->sanitize_phone_value($session_data['nextOfKinContact']);
-        if ($kin_contact !== '' && strlen($kin_contact) < 10) {
-            $kin_contact = '';
+        $mobile_number = $this->sanitize_phone_value($session_data['mobileNumber']);
+
+        $debt_value = sanitize_text_field($session_data['isUnderDebtReview']);
+
+        $dataset = array(
+            'salary' => $salary_value,
+            'debt_review' => $debt_value,
+            'registration_document_number' => $registration_value,
+            'mobile_number' => $mobile_number,
+            'employer_name' => $employer_name,
+            'employer_contact' => $employer_contact,
+            'next_of_kin_name' => $next_of_kin_name,
+            'next_of_kin_contact' => $kin_contact,
+            'marital_status' => $marital_status,
+            'relationship' => $relationship,
+        );
+
+        $errors = $this->get_onboarding_validation_errors($dataset);
+        if (!empty($errors)) {
+            foreach ($errors as $error) {
+                wc_add_notice($error, 'error');
+            }
+
+            return new WP_Error('flexiown_invalid_blocks_data', __('Please correct the Flexiown onboarding details before placing your order.', 'flexiown'));
         }
 
         $field_map = array(
             '_flexiown_salary' => $salary_value,
             '_flexiown_registration_document_number' => $registration_value,
-            '_flexiown_employer_name' => sanitize_text_field($session_data['employerName']),
+            '_flexiown_mobile_number' => $mobile_number,
+            '_flexiown_employer_name' => $employer_name,
             '_flexiown_employer_contact' => $employer_contact,
-            '_flexiown_next_of_kin_name' => sanitize_text_field($session_data['nextOfKinName']),
+            '_flexiown_next_of_kin_name' => $next_of_kin_name,
             '_flexiown_next_of_kin_contact' => $kin_contact,
             '_flexiown_marital_status' => $marital_status,
             '_flexiown_relationship_type' => $relationship,
@@ -1119,12 +1307,42 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             }
         }
 
-        $debt_value = sanitize_text_field($session_data['isUnderDebtReview']);
         if (in_array($debt_value, array('yes', 'no'), true)) {
             $order->update_meta_data('_flexiown_is_under_debt_review', $debt_value);
         }
 
         $order->save();
+
+        return true;
+    }
+
+    private function order_has_complete_onboarding_meta($order)
+    {
+        if (!$order instanceof WC_Order) {
+            return false;
+        }
+
+        $required_meta_keys = array(
+            '_flexiown_salary',
+            '_flexiown_is_under_debt_review',
+            '_flexiown_registration_document_number',
+            '_flexiown_mobile_number',
+            '_flexiown_employer_name',
+            '_flexiown_employer_contact',
+            '_flexiown_next_of_kin_name',
+            '_flexiown_next_of_kin_contact',
+            '_flexiown_marital_status',
+            '_flexiown_relationship_type',
+        );
+
+        foreach ($required_meta_keys as $meta_key) {
+            $value = $this->get_order_meta_value($order, $meta_key);
+            if ($value === '' || $value === null) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
 

@@ -43,6 +43,7 @@
     const namespace = settings.namespace || 'flexiown';
     const dataKey = settings.dataKey || 'application';
     const restUrl = settings.restUrl || '';
+    const onboardingEnabled = Boolean(settings.onboardingEnabled);
 
     const sanitizeIdInput = function (value) {
         return value.replace(/\D/g, '').slice(0, 13);
@@ -56,6 +57,7 @@
         salary: '',
         isUnderDebtReview: '',
         registrationDocumentNumber: '',
+        mobileNumber: '',
         employerName: '',
         employerContact: '',
         maritalStatus: '',
@@ -201,6 +203,7 @@
             inputMode,
             autoComplete,
             maxLength,
+            required,
         } = config;
 
         return FieldWrapper(
@@ -208,7 +211,19 @@
                 createElement(
                     'label',
                     { htmlFor: id, key: id + '-label' },
-                    label
+                    [
+                        label,
+                        required
+                            ? createElement(
+                                  'span',
+                                  {
+                                      className:
+                                          'flexiown-blocks__required-indicator',
+                                  },
+                                  ' *'
+                              )
+                            : null,
+                    ]
                 ),
                 createElement('input', {
                     id: id,
@@ -218,6 +233,8 @@
                     autoComplete: autoComplete,
                     maxLength: maxLength,
                     value: value,
+                    required: Boolean(required),
+                    'aria-required': required ? 'true' : undefined,
                     onChange: function (event) {
                         onChange(event.target.value || '');
                     },
@@ -238,7 +255,7 @@
     };
 
     const renderSelect = function (config) {
-        const { id, label, value, onChange, options, description } = config;
+        const { id, label, value, onChange, options, description, required } = config;
         const optionElements = (options || []).map(function (option, index) {
             return createElement(
                 'option',
@@ -252,7 +269,19 @@
                 createElement(
                     'label',
                     { htmlFor: id, key: id + '-label' },
-                    label
+                    [
+                        label,
+                        required
+                            ? createElement(
+                                  'span',
+                                  {
+                                      className:
+                                          'flexiown-blocks__required-indicator',
+                                  },
+                                  ' *'
+                              )
+                            : null,
+                    ]
                 ),
                 createElement(
                     'select',
@@ -260,6 +289,8 @@
                         id: id,
                         key: id + '-select',
                         value: value,
+                        required: Boolean(required),
+                        'aria-required': required ? 'true' : undefined,
                         onChange: function (event) {
                             onChange(event.target.value || '');
                         },
@@ -306,7 +337,7 @@
                 'p',
                 { className: 'flexiown-blocks__intro' },
                 __(
-                    'Optional information that helps Flexiown pre-approve your order. Only needed when Flexiown is selected at checkout.',
+                    'All Flexiown onboarding fields are required when this payment method is selected. Please complete every field before placing your order.',
                     'flexiown'
                 )
             ),
@@ -317,9 +348,10 @@
                 onChange: function (value) {
                     updateField('salary', value.replace(/[^0-9.]/g, ''));
                 },
-                description: __('Numbers only, optional.', 'flexiown'),
+                description: __('Numbers only. Required for Flexiown screening.', 'flexiown'),
                 inputMode: 'decimal',
                 autoComplete: 'off',
+                required: true,
             }),
             renderSelect({
                 id: 'flexiown-debt-review',
@@ -329,6 +361,7 @@
                     updateField('isUnderDebtReview', value);
                 },
                 options: optionSets.debtReview || [],
+                required: true,
             }),
             renderInput({
                 id: 'flexiown-id-number',
@@ -343,6 +376,20 @@
                 description: __('Exactly 13 digits.', 'flexiown'),
                 inputMode: 'numeric',
                 maxLength: 13,
+                required: true,
+            }),
+            renderInput({
+                id: 'flexiown-mobile-number',
+                label: __('Mobile number', 'flexiown'),
+                value: data.mobileNumber,
+                onChange: function (value) {
+                    updateField('mobileNumber', sanitizePhoneInput(value));
+                },
+                description: __('Digits only (10-15). Country code optional.', 'flexiown'),
+                inputMode: 'tel',
+                maxLength: 15,
+                autoComplete: 'tel',
+                required: true,
             }),
             createElement('hr', { key: 'flexiown-divider-1' }),
             renderInput({
@@ -352,6 +399,7 @@
                 onChange: function (value) {
                     updateField('employerName', value);
                 },
+                required: true,
             }),
             renderInput({
                 id: 'flexiown-employer-contact',
@@ -366,6 +414,7 @@
                 ),
                 inputMode: 'tel',
                 maxLength: 15,
+                required: true,
             }),
             renderSelect({
                 id: 'flexiown-marital-status',
@@ -375,6 +424,7 @@
                     updateField('maritalStatus', value);
                 },
                 options: optionSets.maritalStatus || [],
+                required: true,
             }),
             createElement('hr', { key: 'flexiown-divider-2' }),
             renderInput({
@@ -384,6 +434,7 @@
                 onChange: function (value) {
                     updateField('nextOfKinName', value);
                 },
+                required: true,
             }),
             renderInput({
                 id: 'flexiown-kin-contact',
@@ -398,6 +449,7 @@
                     'Digits only (10-15). Country code optional.',
                     'flexiown'
                 ),
+                required: true,
             }),
             renderSelect({
                 id: 'flexiown-kin-relationship',
@@ -407,6 +459,7 @@
                     updateField('nextOfKinRelationship', value);
                 },
                 options: optionSets.kinRelationship || [],
+                required: true,
             })
         );
     };
@@ -427,7 +480,7 @@
             Fragment,
             null,
             renderDescription(),
-            createElement(FlexiownFields)
+            onboardingEnabled ? createElement(FlexiownFields) : null
         );
     };
 
