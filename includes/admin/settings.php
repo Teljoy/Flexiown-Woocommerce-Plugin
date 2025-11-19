@@ -80,6 +80,10 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         add_action('woocommerce_receipt_flexiown', array($this, 'receipt_page'));
         add_action('woocommerce_api_wc_gateway_flexiown', array($this, 'check_api_response'));
         // add_action('woocommerce_api_' . strtolower(get_class($this)), array($this, 'check_api_response'));
+        add_action('woocommerce_after_order_notes', array($this, 'render_flexiown_checkout_fields'));
+        add_action('wp_enqueue_scripts', array($this, 'enqueue_flexiown_checkout_assets'));
+        add_action('woocommerce_checkout_process', array($this, 'validate_flexiown_checkout_fields'));
+        add_action('woocommerce_checkout_update_order_meta', array($this, 'save_flexiown_checkout_fields'));
         add_filter('woocommerce_available_payment_gateways', array(
             $this,
             'check_cart_line_item_validity'
@@ -134,6 +138,286 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
         return $args;
     }
+
+    public function get_marital_status_options()
+    {
+        return array(
+            ''  => __('Select marital status', 'flexiown'),
+            '0' => __('Married', 'flexiown'),
+            '1' => __('Single', 'flexiown'),
+            '2' => __('Divorced', 'flexiown'),
+            '3' => __('Widowed', 'flexiown'),
+            '4' => __('Living Together', 'flexiown'),
+        );
+    }
+
+    public function get_relationship_options()
+    {
+        return array(
+            ''  => __('Select relationship', 'flexiown'),
+            '0' => __('Spouse', 'flexiown'),
+            '1' => __('Partner', 'flexiown'),
+            '2' => __('Family', 'flexiown'),
+            '3' => __('Friend', 'flexiown'),
+            '4' => __('Colleague', 'flexiown'),
+        );
+    }
+
+    public function get_debt_review_options()
+    {
+        return array(
+            ''   => __('Select option', 'flexiown'),
+            'no' => __('No', 'flexiown'),
+            'yes' => __('Yes', 'flexiown'),
+        );
+    }
+
+    private function is_flexiown_payment_selected()
+    {
+        return isset($_POST['payment_method']) && 'flexiown' === $_POST['payment_method'];
+    }
+
+    public function is_valid_phone_value($value)
+    {
+        $value = trim((string)$value);
+
+        if ($value === '') {
+            return true;
+        }
+
+        if (!preg_match('/^[0-9+()\s-]+$/', $value)) {
+            return false;
+        }
+
+        $digits = preg_replace('/\D/', '', $value);
+        $length = strlen($digits);
+
+        return $length === 0 || ($length >= 10 && $length <= 15);
+    }
+
+    public function sanitize_phone_value($value)
+    {
+        $value = preg_replace('/[^0-9+()\s-]/', '', (string)$value);
+        $digits = preg_replace('/\D/', '', $value);
+
+        if ($digits === '') {
+            return '';
+        }
+
+        return substr($digits, 0, 15);
+    }
+
+    public function sanitize_id_value($value)
+    {
+        $digits = preg_replace('/\D/', '', (string)$value);
+        return substr($digits, 0, 13);
+    }
+
+    public function is_valid_id_value($value)
+    {
+        $digits = $this->sanitize_id_value($value);
+        return $digits === '' || strlen($digits) === 13;
+    }
+
+    private function get_order_meta_value($order, $key, $default = '')
+    {
+        if (!is_a($order, 'WC_Order')) {
+            return $default;
+        }
+
+        $value = $order->get_meta($key, true);
+        return $value !== '' ? $value : $default;
+    }
+
+    public function enqueue_flexiown_checkout_assets()
+    {
+        if (is_admin() || 'yes' !== $this->enabled) {
+            return;
+        }
+
+        if (!function_exists('is_checkout') || !is_checkout()) {
+            return;
+        }
+
+        wp_enqueue_script(
+            'flexiown-checkout-fields',
+            FLEXIOWN_PLUGIN_URL . 'assets/js/frontend/flexiown-checkout.js',
+            array('jquery'),
+            FLEXIOWN_VERSION,
+            true
+        );
+    }
+
+    public function render_flexiown_checkout_fields($checkout)
+    {
+        if ('yes' !== $this->enabled) {
+            return;
+        }
+
+        echo '<div id="flexiown-extra-fields" class="flexiown-extra-fields" style="display:none">';
+        echo '<h3>' . esc_html__('Flexiown application details', 'flexiown') . '</h3>';
+        echo '<p class="flexiown-extra-fields__intro">' . esc_html__('Optional information that helps Flexiown pre-approve your order. Only needed when Flexiown is selected at checkout.', 'flexiown') . '</p>';
+
+        woocommerce_form_field('flexiown_salary', array(
+            'type' => 'text',
+            'label' => __('Monthly salary', 'flexiown'),
+            'required' => false,
+            'input_class' => array('flexiown-field'),
+            'custom_attributes' => array('inputmode' => 'decimal', 'autocomplete' => 'off'),
+            'description' => __('Numbers only, optional.', 'flexiown'),
+        ), $checkout->get_value('flexiown_salary'));
+
+        woocommerce_form_field('flexiown_is_under_debt_review', array(
+            'type' => 'select',
+            'label' => __('Currently under debt review?', 'flexiown'),
+            'required' => false,
+            'options' => $this->get_debt_review_options(),
+        ), $checkout->get_value('flexiown_is_under_debt_review'));
+
+        woocommerce_form_field('flexiown_registration_document_number', array(
+            'type' => 'text',
+            'label' => __('Registration / ID number', 'flexiown'),
+            'required' => false,
+            'input_class' => array('flexiown-field'),
+        ), $checkout->get_value('flexiown_registration_document_number'));
+
+        echo '<hr />';
+
+        woocommerce_form_field('flexiown_employer_name', array(
+            'type' => 'text',
+            'label' => __('Employer name', 'flexiown'),
+            'required' => false,
+            'input_class' => array('flexiown-field'),
+        ), $checkout->get_value('flexiown_employer_name'));
+
+        woocommerce_form_field('flexiown_employer_contact_number', array(
+            'type' => 'text',
+            'label' => __('Employer contact number', 'flexiown'),
+            'required' => false,
+            'input_class' => array('flexiown-field'),
+            'description' => __('Include country code if available.', 'flexiown'),
+        ), $checkout->get_value('flexiown_employer_contact_number'));
+
+        woocommerce_form_field('flexiown_marital_status', array(
+            'type' => 'select',
+            'label' => __('Marital status', 'flexiown'),
+            'required' => false,
+            'options' => $this->get_marital_status_options(),
+        ), $checkout->get_value('flexiown_marital_status'));
+
+        echo '<hr />';
+
+        woocommerce_form_field('flexiown_next_of_kin_name', array(
+            'type' => 'text',
+            'label' => __('Next of kin name', 'flexiown'),
+            'required' => false,
+            'input_class' => array('flexiown-field'),
+        ), $checkout->get_value('flexiown_next_of_kin_name'));
+
+        woocommerce_form_field('flexiown_next_of_kin_contact_number', array(
+            'type' => 'text',
+            'label' => __('Next of kin contact number', 'flexiown'),
+            'required' => false,
+            'input_class' => array('flexiown-field'),
+        ), $checkout->get_value('flexiown_next_of_kin_contact_number'));
+
+        woocommerce_form_field('flexiown_next_of_kin_relationship', array(
+            'type' => 'select',
+            'label' => __('Next of kin relationship', 'flexiown'),
+            'required' => false,
+            'options' => $this->get_relationship_options(),
+        ), $checkout->get_value('flexiown_next_of_kin_relationship'));
+
+        echo '</div>';
+    }
+
+    public function validate_flexiown_checkout_fields()
+    {
+        if (!$this->is_flexiown_payment_selected()) {
+            return;
+        }
+
+        $salary = isset($_POST['flexiown_salary']) ? wc_clean(wp_unslash($_POST['flexiown_salary'])) : '';
+        if ($salary !== '') {
+            $normalized_salary = preg_replace('/[^0-9.]/', '', $salary);
+            if ($normalized_salary === '' || !is_numeric($normalized_salary) || (float)$normalized_salary < 0) {
+                wc_add_notice(__('Please enter a valid numeric salary amount.', 'flexiown'), 'error');
+            }
+        }
+
+        $debt_value = isset($_POST['flexiown_is_under_debt_review']) ? sanitize_text_field(wp_unslash($_POST['flexiown_is_under_debt_review'])) : '';
+        $debt_options = array_keys($this->get_debt_review_options());
+        if ($debt_value !== '' && !in_array($debt_value, $debt_options, true)) {
+            wc_add_notice(__('Please select a valid debt review option.', 'flexiown'), 'error');
+        }
+
+        $id_number = isset($_POST['flexiown_registration_document_number']) ? wc_clean(wp_unslash($_POST['flexiown_registration_document_number'])) : '';
+        if ($id_number !== '' && !$this->is_valid_id_value($id_number)) {
+            wc_add_notice(__('Registration / ID number must contain exactly 13 digits.', 'flexiown'), 'error');
+        }
+
+        $employer_phone = isset($_POST['flexiown_employer_contact_number']) ? wc_clean(wp_unslash($_POST['flexiown_employer_contact_number'])) : '';
+        if (!$this->is_valid_phone_value($employer_phone)) {
+            wc_add_notice(__('Employer contact number must contain 10-15 digits and may include digits, spaces, plus, parentheses or hyphen characters.', 'flexiown'), 'error');
+        }
+
+        $kin_phone = isset($_POST['flexiown_next_of_kin_contact_number']) ? wc_clean(wp_unslash($_POST['flexiown_next_of_kin_contact_number'])) : '';
+        if (!$this->is_valid_phone_value($kin_phone)) {
+            wc_add_notice(__('Next of kin contact number must contain 10-15 digits and may include digits, spaces, plus, parentheses or hyphen characters.', 'flexiown'), 'error');
+        }
+
+        $marital = isset($_POST['flexiown_marital_status']) ? sanitize_text_field(wp_unslash($_POST['flexiown_marital_status'])) : '';
+        if ($marital !== '' && !array_key_exists($marital, $this->get_marital_status_options())) {
+            wc_add_notice(__('Please choose a valid marital status.', 'flexiown'), 'error');
+        }
+
+        $relationship = isset($_POST['flexiown_next_of_kin_relationship']) ? sanitize_text_field(wp_unslash($_POST['flexiown_next_of_kin_relationship'])) : '';
+        if ($relationship !== '' && !array_key_exists($relationship, $this->get_relationship_options())) {
+            wc_add_notice(__('Please choose a valid next of kin relationship.', 'flexiown'), 'error');
+        }
+    }
+
+    public function save_flexiown_checkout_fields($order_id)
+    {
+        if (!$this->is_flexiown_payment_selected()) {
+            return;
+        }
+
+        $order = wc_get_order($order_id);
+
+        if (!$order) {
+            return;
+        }
+
+        $field_map = array(
+            '_flexiown_salary' => isset($_POST['flexiown_salary']) ? preg_replace('/[^0-9.]/', '', wc_clean(wp_unslash($_POST['flexiown_salary']))) : '',
+            '_flexiown_registration_document_number' => isset($_POST['flexiown_registration_document_number']) ? $this->sanitize_id_value(wc_clean(wp_unslash($_POST['flexiown_registration_document_number']))) : '',
+            '_flexiown_employer_name' => isset($_POST['flexiown_employer_name']) ? wc_clean(wp_unslash($_POST['flexiown_employer_name'])) : '',
+            '_flexiown_employer_contact' => isset($_POST['flexiown_employer_contact_number']) ? $this->sanitize_phone_value(wc_clean(wp_unslash($_POST['flexiown_employer_contact_number']))) : '',
+            '_flexiown_next_of_kin_name' => isset($_POST['flexiown_next_of_kin_name']) ? wc_clean(wp_unslash($_POST['flexiown_next_of_kin_name'])) : '',
+            '_flexiown_next_of_kin_contact' => isset($_POST['flexiown_next_of_kin_contact_number']) ? $this->sanitize_phone_value(wc_clean(wp_unslash($_POST['flexiown_next_of_kin_contact_number']))) : '',
+            '_flexiown_marital_status' => isset($_POST['flexiown_marital_status']) ? sanitize_text_field(wp_unslash($_POST['flexiown_marital_status'])) : '',
+            '_flexiown_relationship_type' => isset($_POST['flexiown_next_of_kin_relationship']) ? sanitize_text_field(wp_unslash($_POST['flexiown_next_of_kin_relationship'])) : '',
+        );
+
+        foreach ($field_map as $meta_key => $value) {
+            if ($value !== '') {
+                $order->update_meta_data($meta_key, $value);
+            } else {
+                $order->delete_meta_data($meta_key);
+            }
+        }
+
+        $debt_value = isset($_POST['flexiown_is_under_debt_review']) ? sanitize_text_field(wp_unslash($_POST['flexiown_is_under_debt_review'])) : '';
+        if (in_array($debt_value, array('yes', 'no'), true)) {
+            $order->update_meta_data('_flexiown_is_under_debt_review', $debt_value);
+        } else {
+            $order->delete_meta_data('_flexiown_is_under_debt_review');
+        }
+
+        $order->save();
+    }
+
 
 
 
@@ -530,6 +814,8 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             $order = new WC_Order($order_id);
         }
 
+        $this->maybe_backfill_blocks_session_data($order);
+
         //Process here
         $orderitems = $order->get_items();
 
@@ -624,12 +910,26 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
     public function transaction_payload($order, $items, $order_id, $shipping_total)
     {
+        $salary_meta = $this->get_order_meta_value($order, '_flexiown_salary');
+        $debt_review_meta = $this->get_order_meta_value($order, '_flexiown_is_under_debt_review');
+        $registration_meta = $this->get_order_meta_value($order, '_flexiown_registration_document_number');
+
+        $employer_name = $this->get_order_meta_value($order, '_flexiown_employer_name');
+        $employer_contact = $this->get_order_meta_value($order, '_flexiown_employer_contact');
+        $next_of_kin_name = $this->get_order_meta_value($order, '_flexiown_next_of_kin_name');
+        $next_of_kin_contact = $this->get_order_meta_value($order, '_flexiown_next_of_kin_contact');
+        $marital_status_meta = $this->get_order_meta_value($order, '_flexiown_marital_status');
+        $relationship_meta = $this->get_order_meta_value($order, '_flexiown_relationship_type');
+
         // Sanitize all customer data
         $customer_data = array(
             'first_name' => sanitize_text_field($order->billing_first_name),
             'last_name' => sanitize_text_field($order->billing_last_name),
             'email' => sanitize_email($order->billing_email),
-            'mobile' => sanitize_text_field($order->billing_phone)
+            'mobile' => sanitize_text_field($order->billing_phone),
+            'salary' => $salary_meta !== '' ? $salary_meta : null,
+            'is_under_debt_review' => $debt_review_meta === '' ? null : ('yes' === $debt_review_meta),
+            'registration_document_number' => $registration_meta !== '' ? $registration_meta : null
         );
 
         // Sanitize shipping address
@@ -690,17 +990,141 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             'merchant_store' => sanitize_text_field($active_store_location)
         );
 
+        //New fields
+        $personal_data = array(
+            'employerName' => $employer_name !== '' ? $employer_name : null,
+            'employerContactNumber' => $employer_contact !== '' ? $employer_contact : null,
+            'nextOfKinName' => $next_of_kin_name !== '' ? $next_of_kin_name : null,
+            'nextOfKinContactNumber' => $next_of_kin_contact !== '' ? $next_of_kin_contact : null,
+            'maritalStatus' => $marital_status_meta !== '' && array_key_exists($marital_status_meta, $this->get_marital_status_options()) ? (int)$marital_status_meta : null,
+            'nextOfKinRelationshipType' => $relationship_meta !== '' && array_key_exists($relationship_meta, $this->get_relationship_options()) ? (int)$relationship_meta : null,
+        );
+
+        /*
+            const maritalStatusOptions = [
+                { label: 'Married', value: 0 },
+                { label: 'Single', value: 1 },
+                { label: 'Divorced', value: 2 },
+                { label: 'Widowed', value: 3 },
+                { label: 'Living Together', value: 4 }
+            ]
+
+            const relationshipOptions = [
+                { label: 'Spouse', value: 0 },
+                { label: 'Partner', value: 1 },
+                { label: 'Family', value: 2 },
+                { label: 'Friend', value: 3 },
+                { label: 'Colleague', value: 4 }
+            ]
+        */
+
         // Build the complete order data structure
         $order_data = array(
             'customer' => $customer_data,
             'shipping_address' => $shipping_address,
             'billing_address' => $billing_address,
             'products' => $items, // This is already an array from build_product_list()
-            'redirects' => $redirects
+            'redirects' => $redirects,
+            'personal' => $personal_data
         );
 
         // Return JSON exactly as before but now securely encoded
         return json_encode($order_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * Backfill optional checkout fields from the Blocks session when meta is missing.
+     *
+     * @param WC_Order $order
+     */
+    private function maybe_backfill_blocks_session_data($order)
+    {
+        if (!function_exists('WC') || !WC()->session) {
+            return;
+        }
+
+        $session_data = WC()->session->get('flexiown_extension_data', []);
+        if (!is_array($session_data) || empty($session_data)) {
+            return;
+        }
+
+        $defaults = array(
+            'salary' => '',
+            'isUnderDebtReview' => '',
+            'registrationDocumentNumber' => '',
+            'employerName' => '',
+            'employerContact' => '',
+            'nextOfKinName' => '',
+            'nextOfKinContact' => '',
+            'maritalStatus' => '',
+            'nextOfKinRelationship' => '',
+        );
+
+        $session_data = array_merge($defaults, array_intersect_key($session_data, $defaults));
+
+        $has_value = false;
+        foreach ($session_data as $value) {
+            if ($value !== '' && $value !== null) {
+                $has_value = true;
+                break;
+            }
+        }
+
+        if (!$has_value) {
+            return;
+        }
+
+        $this->flexiown_log('Flexiown Blocks session snapshot: ' . print_r($session_data, true), false);
+
+        $marital_status = sanitize_text_field($session_data['maritalStatus']);
+        if ($marital_status !== '' && !array_key_exists($marital_status, $this->get_marital_status_options())) {
+            $marital_status = '';
+        }
+
+        $relationship = sanitize_text_field($session_data['nextOfKinRelationship']);
+        if ($relationship !== '' && !array_key_exists($relationship, $this->get_relationship_options())) {
+            $relationship = '';
+        }
+
+        $salary_value = $session_data['salary'] !== '' ? preg_replace('/[^0-9.]/', '', $session_data['salary']) : '';
+        $registration_value = $this->sanitize_id_value($session_data['registrationDocumentNumber']);
+        if ($registration_value !== '' && !$this->is_valid_id_value($registration_value)) {
+            $registration_value = '';
+        }
+
+        $employer_contact = $this->sanitize_phone_value($session_data['employerContact']);
+        if ($employer_contact !== '' && strlen($employer_contact) < 10) {
+            $employer_contact = '';
+        }
+
+        $kin_contact = $this->sanitize_phone_value($session_data['nextOfKinContact']);
+        if ($kin_contact !== '' && strlen($kin_contact) < 10) {
+            $kin_contact = '';
+        }
+
+        $field_map = array(
+            '_flexiown_salary' => $salary_value,
+            '_flexiown_registration_document_number' => $registration_value,
+            '_flexiown_employer_name' => sanitize_text_field($session_data['employerName']),
+            '_flexiown_employer_contact' => $employer_contact,
+            '_flexiown_next_of_kin_name' => sanitize_text_field($session_data['nextOfKinName']),
+            '_flexiown_next_of_kin_contact' => $kin_contact,
+            '_flexiown_marital_status' => $marital_status,
+            '_flexiown_relationship_type' => $relationship,
+        );
+
+        foreach ($field_map as $meta_key => $value) {
+            if ($value !== '') {
+                $order->update_meta_data($meta_key, $value);
+            }
+        }
+
+        $debt_value = sanitize_text_field($session_data['isUnderDebtReview']);
+        if (in_array($debt_value, array('yes', 'no'), true)) {
+            $order->update_meta_data('_flexiown_is_under_debt_review', $debt_value);
+        }
+
+        $order->save();
     }
 
 

@@ -12,16 +12,16 @@ if (isset($options['enable_product_barcode'])) {
 
     if ('yes' === $options['enable_product_barcode']) {
 
-        function wk_custom_product_tab($default_tabs)
-        {
-            $default_tabs['flexiown_settings'] = array(
-                'label'   =>  __('Flexiown Settings', 'domain'),
-                'target'  =>  'wk_flexiown_tab_data',
-                'priority' => 60,
-                'class'   => array()
-            );
-            return $default_tabs;
-        }
+        // function wk_custom_product_tab($default_tabs)
+        // {
+        //     $default_tabs['flexiown_settings'] = array(
+        //         'label'   =>  __('Flexiown Settings', 'domain'),
+        //         'target'  =>  'wk_flexiown_tab_data',
+        //         'priority' => 60,
+        //         'class'   => array()
+        //     );
+        //     return $default_tabs;
+        // }
 
         add_filter('woocommerce_product_data_tabs', 'wk_custom_product_tab', 10, 1);
 
