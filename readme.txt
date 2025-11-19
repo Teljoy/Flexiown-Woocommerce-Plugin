@@ -4,7 +4,7 @@ Tags: credit card, Flexiown, payment request, woocommerce, teljoy
 Requires at least: 6.0
 Tested up to: 6.0
 Requires PHP: 7.4
-Stable tag: 0.0.1
+Stable tag: 2.1.0
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -38,5 +38,10 @@ For help setting up and configuring, please refer to our [user guide](#)
 If you get stuck, you can contact hello@teljoy.co.za
 
 == Changelog ==
+= 2.1.0 - 2025-11-19 =
+* Enforced every Flexiown onboarding field as required whenever the checkout toggle is enabled, covering both Classic checkout and WooCommerce Blocks.
+* Hardened server-side sanitization for salary, ID, employer, and next-of-kin contact details and block checkout until valid values are supplied.
+* Updated Blocks UI to reflect the new requirements, highlighting each onboarding field as mandatory with clearer helper text.
+
 = 2.0.0 - 2025-08-20 =
 * Full plugin conversion and rebrand with alignment to latest woocommerce and wordpress standards
