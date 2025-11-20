@@ -798,7 +798,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
     public function flexiown_log($message, $send_mail)
     {
         //log the item if valid
-        if ('yes' === $this->get_option('staging') || $this->enable_logging) {
+        if ($this->enable_logging) {
             if (empty($this->flexiown_logger)) {
                 $this->flexiown_logger = new WC_Logger();
             }
