@@ -408,7 +408,7 @@ function woo_flexiown_frontend_widget_legacy()
 {
     $gateway = new WC_Gateway_Flexiown();
     global $product;
-    if (!method_exists($product, 'get_id')) {
+    if ( ! $product || ! method_exists( $product, 'get_id' ) ) {
         return '';
     }
 
@@ -431,7 +431,7 @@ function woo_flexiown_frontend_widget()
 {
     $gateway = new WC_Gateway_Flexiown();
     global $product;
-    if (!method_exists($product, 'get_id')) {
+    if ( ! $product || ! method_exists( $product, 'get_id' ) ) {
         return '';
     }
 
