@@ -423,6 +423,9 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         );
 
         $errors = $this->get_onboarding_validation_errors($dataset);
+        if (!empty($errors)) {
+            $this->flexiown_log('Validation failed. Missing fields? POST keys: ' . print_r(array_keys($_POST), true), false);
+        }
         foreach ($errors as $error) {
             wc_add_notice($error, 'error');
         }
@@ -1282,8 +1285,11 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
         $errors = $this->get_onboarding_validation_errors($dataset);
         if (!empty($errors)) {
-            foreach ($errors as $error) {
-                wc_add_notice($error, 'error');
+            // Only add notices if there aren't any already (avoids duplicates if validation hook already ran)
+            if (wc_notice_count('error') === 0) {
+                foreach ($errors as $error) {
+                    wc_add_notice($error, 'error');
+                }
             }
 
             return new WP_Error('flexiown_invalid_blocks_data', __('Please correct the Flexiown onboarding details before placing your order.', 'flexiown'));

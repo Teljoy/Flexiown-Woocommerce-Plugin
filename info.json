@@ -1,7 +1,7 @@
 {
     "name" : "Flexiown Woocommerce Payment Gateway",
     "slug" : "flexiown-woocommerce-payment-gateway",
-    "version" : "2.1.0",
+    "version" : "2.1.1",
     "author"  : "Flexiown",
     "author_uri" : "https://flexiown.co.za",
     "download_url" : "https://github.com/Teljoy/Fleixiown-Woocommerce-Plugin/raw/refs/heads/main/teljoy-flexiown.zip",
