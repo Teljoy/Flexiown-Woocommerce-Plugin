@@ -279,9 +279,16 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
     public function render_flexiown_checkout_fields($checkout)
     {
+        static $rendered = false;
+        if ($rendered) {
+            return;
+        }
+
         if ('yes' !== $this->enabled || !$this->is_onboarding_enabled()) {
             return;
         }
+
+        $rendered = true;
 
         $mobile_prefill = $checkout->get_value('flexiown_mobile_number');
         if ('' === $mobile_prefill || null === $mobile_prefill) {
@@ -424,7 +431,20 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
         $errors = $this->get_onboarding_validation_errors($dataset);
         if (!empty($errors)) {
-            $this->flexiown_log('Validation failed. Missing fields? POST keys: ' . print_r(array_keys($_POST), true), false);
+            $debug_data = array_intersect_key($_POST, array_flip(array(
+                'flexiown_salary', 
+                'flexiown_is_under_debt_review', 
+                'flexiown_registration_document_number',
+                'flexiown_mobile_number',
+                'flexiown_employer_name',
+                'flexiown_employer_contact_number',
+                'flexiown_marital_status',
+                'flexiown_next_of_kin_name',
+                'flexiown_next_of_kin_contact_number',
+                'flexiown_next_of_kin_relationship'
+            )));
+            $this->flexiown_log('Validation failed. Flexiown POST values: ' . print_r($debug_data, true), false);
+            $this->flexiown_log('Validation failed. Dataset: ' . print_r($dataset, true), false);
         }
         foreach ($errors as $error) {
             wc_add_notice($error, 'error');
