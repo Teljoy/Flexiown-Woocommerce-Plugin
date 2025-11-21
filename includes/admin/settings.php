@@ -302,8 +302,8 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         $mobile_prefill = $this->sanitize_phone_value($mobile_prefill);
 
         echo '<div id="flexiown-extra-fields" class="flexiown-extra-fields" style="display:none">';
-        echo '<h3>' . esc_html__('Flexiown application details', 'flexiown') . '</h3>';
-        echo '<p class="flexiown-extra-fields__intro">' . esc_html__('Optional information that helps Flexiown pre-approve your order. Only needed when Flexiown is selected at checkout.', 'flexiown') . '</p>';
+        // echo '<h3>' . esc_html__('Flexiown application details', 'flexiown') . '</h3>';
+        // echo '<p class="flexiown-extra-fields__intro">' . esc_html__('Optional information that helps Flexiown pre-approve your order. Only needed when Flexiown is selected at checkout.', 'flexiown') . '</p>';
 
         woocommerce_form_field('flexiown_salary', array(
             'type' => 'text',
@@ -323,7 +323,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
         woocommerce_form_field('flexiown_registration_document_number', array(
             'type' => 'text',
-            'label' => __('Registration / ID number', 'flexiown'),
+            'label' => __('ID number', 'flexiown'),
             'required' => true,
             'input_class' => array('flexiown-field'),
             'custom_attributes' => array(

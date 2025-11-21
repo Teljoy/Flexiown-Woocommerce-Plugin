@@ -328,19 +328,19 @@
         return createElement(
             'div',
             { className: 'flexiown-blocks' },
-            createElement(
-                'h3',
-                null,
-                __('Flexiown application details', 'flexiown')
-            ),
-            createElement(
-                'p',
-                { className: 'flexiown-blocks__intro' },
-                __(
-                    'All Flexiown onboarding fields are required when this payment method is selected. Please complete every field before placing your order.',
-                    'flexiown'
-                )
-            ),
+            // createElement(
+            //     'h3',
+            //     null,
+            //     __('Flexiown application details', 'flexiown')
+            // ),
+            // createElement(
+            //     'p',
+            //     { className: 'flexiown-blocks__intro' },
+            //     __(
+            //         'All Flexiown onboarding fields are required when this payment method is selected. Please complete every field before placing your order.',
+            //         'flexiown'
+            //     )
+            // ),
             renderInput({
                 id: 'flexiown-salary',
                 label: __('Monthly salary', 'flexiown'),
@@ -365,7 +365,7 @@
             }),
             renderInput({
                 id: 'flexiown-id-number',
-                label: __('Registration / ID number', 'flexiown'),
+                label: __('ID number', 'flexiown'),
                 value: data.registrationDocumentNumber,
                 onChange: function (value) {
                     updateField(
