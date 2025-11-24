@@ -328,11 +328,11 @@
         return createElement(
             'div',
             { className: 'flexiown-blocks' },
-            // createElement(
-            //     'h3',
-            //     null,
-            //     __('Flexiown application details', 'flexiown')
-            // ),
+            createElement(
+                'h3',
+                null,
+                __('Personal Information', 'flexiown')
+            ),
             // createElement(
             //     'p',
             //     { className: 'flexiown-blocks__intro' },
@@ -341,28 +341,6 @@
             //         'flexiown'
             //     )
             // ),
-            renderInput({
-                id: 'flexiown-salary',
-                label: __('Monthly salary', 'flexiown'),
-                value: data.salary,
-                onChange: function (value) {
-                    updateField('salary', value.replace(/[^0-9.]/g, ''));
-                },
-                description: __('Numbers only. Required for Flexiown screening.', 'flexiown'),
-                inputMode: 'decimal',
-                autoComplete: 'off',
-                required: true,
-            }),
-            renderSelect({
-                id: 'flexiown-debt-review',
-                label: __('Currently under debt review?', 'flexiown'),
-                value: data.isUnderDebtReview,
-                onChange: function (value) {
-                    updateField('isUnderDebtReview', value);
-                },
-                options: optionSets.debtReview || [],
-                required: true,
-            }),
             renderInput({
                 id: 'flexiown-id-number',
                 label: __('ID number', 'flexiown'),
@@ -391,7 +369,44 @@
                 autoComplete: 'tel',
                 required: true,
             }),
-            createElement('hr', { key: 'flexiown-divider-1' }),
+            renderSelect({
+                id: 'flexiown-marital-status',
+                label: __('Marital status', 'flexiown'),
+                value: data.maritalStatus,
+                onChange: function (value) {
+                    updateField('maritalStatus', value);
+                },
+                options: optionSets.maritalStatus || [],
+                required: true,
+            }),
+            renderInput({
+                id: 'flexiown-salary',
+                label: __('Nett Monthly salary', 'flexiown'),
+                value: data.salary,
+                onChange: function (value) {
+                    updateField('salary', value.replace(/[^0-9.]/g, ''));
+                },
+                description: __('Numbers only. Required for Flexiown screening.', 'flexiown'),
+                inputMode: 'decimal',
+                autoComplete: 'off',
+                required: true,
+            }),
+            renderSelect({
+                id: 'flexiown-debt-review',
+                label: __('Currently under debt review?', 'flexiown'),
+                value: data.isUnderDebtReview,
+                onChange: function (value) {
+                    updateField('isUnderDebtReview', value);
+                },
+                options: optionSets.debtReview || [],
+                required: true,
+            }),
+            createElement('br', null),
+            createElement(
+                'h3',
+                null,
+                __('Employment Information', 'flexiown')
+            ),
             renderInput({
                 id: 'flexiown-employer-name',
                 label: __('Employer name', 'flexiown'),
@@ -416,17 +431,12 @@
                 maxLength: 15,
                 required: true,
             }),
-            renderSelect({
-                id: 'flexiown-marital-status',
-                label: __('Marital status', 'flexiown'),
-                value: data.maritalStatus,
-                onChange: function (value) {
-                    updateField('maritalStatus', value);
-                },
-                options: optionSets.maritalStatus || [],
-                required: true,
-            }),
-            createElement('hr', { key: 'flexiown-divider-2' }),
+            createElement('br', null),
+             createElement(
+                'h3',
+                null,
+                __('Next of kin Details', 'flexiown')
+            ),
             renderInput({
                 id: 'flexiown-kin-name',
                 label: __('Next of kin name', 'flexiown'),

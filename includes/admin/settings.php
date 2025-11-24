@@ -304,23 +304,6 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         echo '<div id="flexiown-extra-fields" class="flexiown-extra-fields" style="display:none">';
         // echo '<h3>' . esc_html__('Flexiown application details', 'flexiown') . '</h3>';
         // echo '<p class="flexiown-extra-fields__intro">' . esc_html__('Optional information that helps Flexiown pre-approve your order. Only needed when Flexiown is selected at checkout.', 'flexiown') . '</p>';
-
-        woocommerce_form_field('flexiown_salary', array(
-            'type' => 'text',
-            'label' => __('Monthly salary', 'flexiown'),
-            'required' => true,
-            'input_class' => array('flexiown-field'),
-            'custom_attributes' => array('inputmode' => 'decimal', 'autocomplete' => 'off'),
-            'description' => __('Numbers only. Required for Flexiown screening.', 'flexiown'),
-        ), $checkout->get_value('flexiown_salary'));
-
-        woocommerce_form_field('flexiown_is_under_debt_review', array(
-            'type' => 'select',
-            'label' => __('Currently under debt review?', 'flexiown'),
-            'required' => true,
-            'options' => $this->get_debt_review_options(),
-        ), $checkout->get_value('flexiown_is_under_debt_review'));
-
         woocommerce_form_field('flexiown_registration_document_number', array(
             'type' => 'text',
             'label' => __('ID number', 'flexiown'),
@@ -346,8 +329,32 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
                 'autocomplete' => 'tel',
             ),
         ), $mobile_prefill);
+        woocommerce_form_field('flexiown_marital_status', array(
+            'type' => 'select',
+            'label' => __('Marital status', 'flexiown'),
+            'required' => true,
+            'options' => $this->get_marital_status_options(),
+        ), $checkout->get_value('flexiown_marital_status'));
+        woocommerce_form_field('flexiown_salary', array(
+            'type' => 'text',
+            'label' => __('Nett monthly income', 'flexiown'),
+            'required' => true,
+            'input_class' => array('flexiown-field'),
+            'custom_attributes' => array('inputmode' => 'decimal', 'autocomplete' => 'off'),
+            'description' => __('Numbers only. Required for Flexiown screening.', 'flexiown'),
+        ), $checkout->get_value('flexiown_salary'));
 
-        echo '<hr />';
+        woocommerce_form_field('flexiown_is_under_debt_review', array(
+            'type' => 'select',
+            'label' => __('Are you currently under debt review?', 'flexiown'),
+            'required' => true,
+            'options' => $this->get_debt_review_options(),
+        ), $checkout->get_value('flexiown_is_under_debt_review'));
+
+
+        echo '<br />';
+        // echo '<hr />';
+        echo '<h3>' . esc_html__('Employment Information', 'flexiown') . '</h3>';
 
         woocommerce_form_field('flexiown_employer_name', array(
             'type' => 'text',
@@ -364,14 +371,11 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             'description' => __('Include country code if available.', 'flexiown'),
         ), $checkout->get_value('flexiown_employer_contact_number'));
 
-        woocommerce_form_field('flexiown_marital_status', array(
-            'type' => 'select',
-            'label' => __('Marital status', 'flexiown'),
-            'required' => true,
-            'options' => $this->get_marital_status_options(),
-        ), $checkout->get_value('flexiown_marital_status'));
 
-        echo '<hr />';
+
+        echo '<br />';
+        // echo '<hr />';
+        echo '<h3>' . esc_html__('Next of Kin Details', 'flexiown') . '</h3>';
 
         woocommerce_form_field('flexiown_next_of_kin_name', array(
             'type' => 'text',
@@ -432,8 +436,8 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         $errors = $this->get_onboarding_validation_errors($dataset);
         if (!empty($errors)) {
             $debug_data = array_intersect_key($_POST, array_flip(array(
-                'flexiown_salary', 
-                'flexiown_is_under_debt_review', 
+                'flexiown_salary',
+                'flexiown_is_under_debt_review',
                 'flexiown_registration_document_number',
                 'flexiown_mobile_number',
                 'flexiown_employer_name',
@@ -499,7 +503,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
         $salary = isset($data['salary']) ? $data['salary'] : '';
         if ($salary === '') {
-            $errors[] = __('Please enter your monthly salary.', 'flexiown');
+            $errors[] = __('Please enter your Nett monthly salary.', 'flexiown');
         } elseif (!is_numeric($salary) || (float)$salary <= 0) {
             $errors[] = __('Salary must be a positive numeric value.', 'flexiown');
         }
@@ -521,9 +525,9 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
         $id_number = isset($data['registration_document_number']) ? $data['registration_document_number'] : '';
         if ($id_number === '') {
-            $errors[] = __('Registration / ID number is required.', 'flexiown');
+            $errors[] = __('ID number is required.', 'flexiown');
         } elseif (!$this->is_valid_id_value($id_number)) {
-            $errors[] = __('Registration / ID number must contain exactly 13 digits.', 'flexiown');
+            $errors[] = __('ID number must contain exactly 13 digits.', 'flexiown');
         }
 
         $employer_name = isset($data['employer_name']) ? trim((string)$data['employer_name']) : '';
@@ -999,8 +1003,8 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         $this->flexiown_log('POST Order request: ' . print_r($OrderBody, true), true);
 
         $order_response = wp_remote_post(
-        $this->url, 
-        $this->get_api_args('POST', $OrderBody)
+            $this->url,
+            $this->get_api_args('POST', $OrderBody)
         );
 
         $order_body = json_decode(wp_remote_retrieve_body($order_response));
@@ -1740,8 +1744,8 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
 
         $response = wp_remote_post(
-        $this->validate_url, 
-        $this->get_api_args('POST', $payload)
+            $this->validate_url,
+            $this->get_api_args('POST', $payload)
         );
 
         $result = json_decode(wp_remote_retrieve_body($response));
@@ -1780,7 +1784,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
         $transaction_id = get_post_meta(self::get_order_prop($order, 'id'), 'flexiown_transaction_id', true);
         $response = wp_remote_post(
-            $this->status_url . $transaction_id, 
+            $this->status_url . $transaction_id,
             $this->get_api_args('POST', $payload)
         );
 
