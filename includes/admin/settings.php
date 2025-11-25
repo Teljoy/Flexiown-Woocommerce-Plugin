@@ -403,6 +403,12 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
     public function validate_flexiown_checkout_fields()
     {
+        static $validated = false;
+        if ($validated) {
+            return;
+        }
+        $validated = true;
+
         if (!$this->is_onboarding_enabled() || !$this->is_flexiown_payment_selected()) {
             return;
         }
