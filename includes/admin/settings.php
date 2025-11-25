@@ -1026,7 +1026,9 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             );
         }
 
+         $this->flexiown_log('ABOUT TO SAVE DATA', true);
         if ($order_body->success !== null && $order_body->success == true) {
+            $this->flexiown_log('SAVING DATA', true);
             //add the id
             $order->update_meta_data('flexiown_transaction_id', $order_body->id);
 
@@ -1043,6 +1045,8 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             }
 
             $order->save();
+
+            $this->flexiown_log(print_r($order, true), true);
 
 
 
