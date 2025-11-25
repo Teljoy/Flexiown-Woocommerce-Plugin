@@ -1029,21 +1029,20 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         if ($order_body->success !== null && $order_body->success == true) {
             //add the id
             $order->update_meta_data('flexiown_transaction_id', $order_body->id);
-            $order->save_meta_data();
-            //$this->flexiown_log('POST base order: ' . print_r($order, true));
-            // $this->flexiown_log('POST Order response ID: ' . print_r($order_body->id, true));
 
             //lets store the redirect url for later
             $order->update_meta_data('flexiown_redirect_url', $order_body->redirect_url);
-            $order->save_meta_data();
 
             //store location of store if available
             $store_id = get_option('active_store_location');
             if ($store_id) {
                 $store = get_post($store_id);
-                $order->update_meta_data('flexiown_store_location', $store->post_title);
-                $order->save_meta_data();
+                if ($store) {
+                    $order->update_meta_data('flexiown_store_location', $store->post_title);
+                }
             }
+
+            $order->save();
 
 
 
@@ -1142,7 +1141,13 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
         // Store the trust seed in order meta (same as before)
         $order->update_meta_data('flexiown_trust_seed', base64_encode($seed_value_base));
-        $order->save_meta_data();
+        
+        // Explicitly save is_vat_exempt as custom meta for API/Webhooks visibility
+        // if ($order->is_vat_exempt()) {
+        //     $order->update_meta_data('is_vat_exempt', 'yes');
+        // }
+
+        $order->save();
 
         // Get active store location (same as before)
         $active_store_location = '';
