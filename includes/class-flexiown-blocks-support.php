@@ -111,7 +111,7 @@ final class WC_Gateway_Flexiown_Blocks_Support extends AbstractPaymentMethodType
 
         return [
             'title'       => $this->gateway ? $this->gateway->title : 'Flexiown',
-            'description' => $this->gateway ? $this->gateway->description : 'Try It, Love It, Own It. You will be redirected to FlexiownPay to securely complete your payment.',
+            'description' => $this->gateway ? $this->gateway->description : 'Try It, Love It, Own It. You will be redirected to Flexiown to securely complete your payment.',
             'supports'    => $this->gateway ? $this->gateway->supports : ['products'],
             'namespace'   => self::STORE_NAMESPACE,
             'dataKey'     => self::EXTENSION_DATA_KEY,

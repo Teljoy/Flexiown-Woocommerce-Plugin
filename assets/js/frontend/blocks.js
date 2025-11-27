@@ -480,7 +480,7 @@
             { className: 'wc-block-components-payment-method-content' },
             decodeEntities(
                 settings.description ||
-                    'Try It, Love It, Own It. You will be redirected to FlexiownPay to securely complete your payment.'
+                    'Try It, Love It, Own It. You will be redirected to Flexiown to securely complete your payment.'
             )
         );
     };
