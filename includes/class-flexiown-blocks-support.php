@@ -3,10 +3,6 @@
 use Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodType;
 use Automattic\WooCommerce\StoreApi\Schemas\V1\CartSchema;
 use Automattic\WooCommerce\StoreApi\Schemas\V1\CheckoutSchema;
-use WC_Order;
-use WP_REST_Request;
-use WP_REST_Server;
-use stdClass;
 
 /**
  * Flexiown Blocks integration

@@ -119,7 +119,8 @@ if (isset($flexiown_on_cart) && $flexiown_on_cart == 'yes') {
 
             $showFlexiown = true;
             $response = $gateway->api_bulk_product_lookup($woocommerce->cart->cart_contents);
-            if ($response->statusCode !== null && $response->statusCode == 500) {
+            
+            if (!$response || (isset($response->statusCode) && $response->statusCode == 500)) {
                 return false;
             }
 
@@ -296,7 +297,8 @@ function get_flexiown_cart_info_ajax() {
     if (isset($woocommerce->cart->cart_contents) && count($woocommerce->cart->cart_contents) >= 1) {
         $showFlexiown = true;
         $response = $gateway->api_bulk_product_lookup($woocommerce->cart->cart_contents);
-        if ($response->statusCode !== null && $response->statusCode == 500) {
+        
+        if (!$response || (isset($response->statusCode) && $response->statusCode == 500)) {
             wp_send_json_error();
             return;
         }
@@ -345,7 +347,7 @@ function get_flexiown_cart_warnings_ajax() {
     
     // issue the cart to the api so we can get back a list of what is accepted and what is not
     $items = $gateway->api_bulk_product_lookup(WC()->cart->get_cart());
-    //exit if api fails
+    //ex!$items || (isset($items->statusCode) && $items->statusCode == 500)
     if ($items->statusCode !== null && $items->statusCode == 500) {
         wp_send_json_error();
         return;
@@ -547,7 +549,7 @@ function highlight_flexiown_items_in_cart()
 
         
         //exit if api fails
-        if ($items->statusCode !== null && $items->statusCode == 500) {
+        if (!$items || (isset($items->statusCode) && $items->statusCode == 500)) {
             return false;
         }
         $position = 0;
@@ -772,7 +774,7 @@ function remove_flexiown_rejected_items_ajax() {
         $gateway = new WC_Gateway_Flexiown();
         $items = $gateway->api_bulk_product_lookup(WC()->cart->get_cart());
         
-        if ($items === null || ($items->statusCode !== null && $items->statusCode == 500)) {
+        if (!$items || (isset($items->statusCode) && $items->statusCode == 500)) {
             // file_put_contents(WP_CONTENT_DIR . '/flexiown-debug.log', date('Y-m-d H:i:s') . ' - API call failed' . "\n", FILE_APPEND);
             wp_send_json_error('API call failed');
             return;
@@ -857,7 +859,7 @@ function account_area_order_status_checks($actions, $order)
     //$my_order_status = account_area_order_status_checks( $order->get_id() );
     $gateway = new WC_Gateway_Flexiown();
 
-    $flexiown_url = get_post_meta($gateway::get_order_prop($order, 'id'), 'flexiown_redirect_url', true);
+    $flexiown_url = $order->get_meta('flexiown_redirect_url', true);
 
     // If the order has been processed by your payment processor, add a new button with a link to the status page
 

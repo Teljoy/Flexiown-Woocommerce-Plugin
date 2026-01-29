@@ -1,13 +1,13 @@
 {
     "name" : "Flexiown Woocommerce Payment Gateway",
     "slug" : "flexiown-woocommerce-payment-gateway",
-    "version" : "2.1.10",
+    "version" : "2.1.11",
     "author"  : "Flexiown",
     "author_uri" : "https://flexiown.co.za",
     "download_url" : "https://github.com/Teljoy/Fleixiown-Woocommerce-Plugin/raw/refs/heads/main/teljoy-flexiown.zip",
     "sections" : {
         "description" : "Use Flexiown as a payment processor for WooCommerce.",
-        "changelog": "2.1.10 Enforce onboarding requirements across checkout (Classic + Blocks)"
+        "changelog": "<h4>2.1.11</h4><ul><li>support for high performance storage</li><li>improved php error handling</li></ul><h4>2.1.10</h4><ul><li>Enforce onboarding requirements across checkout (Classic + Blocks)</li></ul>"
     },
     "icons" : {
 		"1x" : "http://w-shadow.com/files/external-update-example/assets/icon-128x128.png",

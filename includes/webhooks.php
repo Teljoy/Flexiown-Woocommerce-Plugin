@@ -234,11 +234,11 @@ function flexiown_get_orders(WP_REST_Request $request)
                 'country' => $order->get_shipping_country(),
             ),
             'flexiown_custom_fields' => array(
-                'flexiown_redirect_url' => get_post_meta($order->get_id(), 'flexiown_redirect_url', true),
-                'flexiown_store_location' => get_post_meta($order->get_id(), 'flexiown_store_location', true),
-                'flexiown_transaction_id' => get_post_meta($order->get_id(), 'flexiown_transaction_id', true),
-                'flexiown_trust_seed' => get_post_meta($order->get_id(), 'flexiown_trust_seed', true),
-                'is_vat_exempt' => get_post_meta($order->get_id(), 'is_vat_exempt', true),
+                'flexiown_redirect_url' => $order->get_meta('flexiown_redirect_url', true),
+                'flexiown_store_location' => $order->get_meta('flexiown_store_location', true),
+                'flexiown_transaction_id' => $order->get_meta('flexiown_transaction_id', true),
+                'flexiown_trust_seed' => $order->get_meta('flexiown_trust_seed', true),
+                'is_vat_exempt' => $order->get_meta('is_vat_exempt', true),
             ),
             'line_items' => array()
         );
