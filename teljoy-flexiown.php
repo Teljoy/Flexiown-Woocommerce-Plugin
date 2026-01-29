@@ -4,7 +4,7 @@
  * Description: Use Flexiown as a payment processor for WooCommerce.
  * Plugin URI: https://flexiown.co.za/
  * Author URI: https://flexiown.co.za/
- * Version: 2.1.10
+ * Version: 2.1.11
  * Author: Flexiown
  * Requires at least: 4.4
  * Tested up to: 6.8.3
@@ -20,11 +20,17 @@ defined('ABSPATH') || exit;
 
 define('FLEXIOWN_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('FLEXIOWN_PLUGIN_PATH', plugin_dir_path(__FILE__));
-define('FLEXIOWN_VERSION', '2.1.10');
+define('FLEXIOWN_VERSION', '2.1.11');
 define('FLEXIOWN_DB_VERSION', '1.0.0');
 define('FLEXIOWN_MIN_PHP_VERSION', '7.4');
 define('FLEXIOWN_MIN_WP_VERSION', '5.0');
 define('FLEXIOWN_MIN_WC_VERSION', '8.0');
+
+add_action( 'before_woocommerce_init', function() {
+	if ( class_exists( \Automattic\WooCommerce\Utilities\FeaturesUtil::class ) ) {
+		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', __FILE__, true );
+	}
+} );
 
 class FLEXIOWN_PLUGIN
 {

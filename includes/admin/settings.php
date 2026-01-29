@@ -1171,7 +1171,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         $redirects = array(
             'order_id' => sanitize_text_field($order_id),
             'trust_value' => hash('md5', $order_id),
-            'trust_seed' => get_post_meta(self::get_order_prop($order, 'id'), 'flexiown_trust_seed', true),
+            'trust_seed' => $order->get_meta('flexiown_trust_seed', true),
             'success_redirect_url' => $this->get_return_url($order) . '&order_id=' . $order_id . '&wc-api=WC_Gateway_Flexiown',
             'failure_redirect_url' => $this->get_return_url($order) . '&status=cancelled&wc-api=WC_Gateway_Flexiown',
             'final_amount' => number_format($order->get_total(), 2, '.', ''),
@@ -1592,7 +1592,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
     public function validate_transaction_status($order)
     {
 
-        $transaction_id = get_post_meta(self::get_order_prop($order, 'id'), 'flexiown_transaction_id', true);
+        $transaction_id = $order->get_meta('flexiown_transaction_id', true);
         $verify_transaction = wp_remote_get(
             $this->status_url . $transaction_id,
             $this->get_api_args('GET')
@@ -1623,7 +1623,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         //01 create trust_value
         $trust_value = hash('md5', self::get_order_prop($order, 'id'));
         //02 create trust_seed
-        $trust_seed = get_post_meta(self::get_order_prop($order, 'id'), 'flexiown_trust_seed', true);
+        $trust_seed = $order->get_meta('flexiown_trust_seed', true);
         //for testing return true
         return hash('sha256', $trust_value . '' . $trust_seed);
     }
@@ -1799,11 +1799,11 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         $payload = '{
 			"status": "' . self::get_order_prop($order, 'status') . '",
 			"trust_value": "' . hash('md5', self::get_order_prop($order, 'id')) . '",
-			"trust_seed": "' . get_post_meta(self::get_order_prop($order, 'id'), 'flexiown_trust_seed', true) . '",
+			"trust_seed": "' . $order->get_meta('flexiown_trust_seed', true) . '",
 			"alt_trust_value": "' . $alt_trust_value . '"
 		}';
 
-        $transaction_id = get_post_meta(self::get_order_prop($order, 'id'), 'flexiown_transaction_id', true);
+        $transaction_id = $order->get_meta('flexiown_transaction_id', true);
         $response = wp_remote_post(
             $this->status_url . $transaction_id,
             $this->get_api_args('POST', $payload)
