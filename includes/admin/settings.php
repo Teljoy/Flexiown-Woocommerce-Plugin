@@ -802,10 +802,14 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
 
         // $this->flexiown_log('environmentt: ' . print_r($this->merchant_url, true), false);
+        if (is_wp_error($verify_merchant)) {
+            update_option("woocommerce_hold_stock_minutes", $this->flexiown_stock_hold);
+            return $this->flexiown_stock_hold;
+        }
         $status = json_decode(wp_remote_retrieve_body($verify_merchant));
         // $this->flexiown_log('verify merchant status: ' . print_r($status->completion_period_expiry, true), false);
 
-        if (is_wp_error($status)) {
+         if (!is_object($status)) {
             update_option("woocommerce_hold_stock_minutes", $this->flexiown_stock_hold);
             return $this->flexiown_stock_hold;
         }
