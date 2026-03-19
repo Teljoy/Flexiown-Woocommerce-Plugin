@@ -114,7 +114,7 @@ if (isset($flexiown_on_cart) && $flexiown_on_cart == 'yes') {
         $minPrice_cut = 0;
         $message = 'Or, From only ';
         $options = get_option('woocommerce_flexiown_settings', 'gets the option');
-        $img = plugins_url('/assets/media/flexiown_pay_logo.png', __FILE__);
+        $img = FLEXIOWN_PLUGIN_URL . 'assets/media/flexiown_pay_logo.png';
         if (isset($woocommerce->cart->cart_contents) && count($woocommerce->cart->cart_contents) >= 1) {
 
             $showFlexiown = true;
