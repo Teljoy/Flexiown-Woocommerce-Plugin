@@ -141,7 +141,7 @@ if (isset($flexiown_on_cart) && $flexiown_on_cart == 'yes') {
             }
 
             if ($showFlexiown) {
-                echo wp_kses_post('<div id="float-on-cart" style="color:black !important;margin-top:4px;">' . $message . '<strong class="flexiown-highlight" style="color: #ff003e !important;font-size: inherit;font-weight: inherit;">' . wc_price($minPrice_cut) . ' per month</strong> , try it, love it, own it. <br/>Apply with <img src="' . $img . '" alt="Flexiown" class="float-logo" style="width: 70px;vertical-align: baseline;"/> <a target="_blank" href="https://www.flexiown.co.za/">Learn more</a></div>');
+                echo wp_kses_post('<div id="float-on-cart" style="color:black !important;margin-top:4px;">' . $message . '<strong class="flexiown-highlight" style="color: #ff003e !important;font-size: inherit;font-weight: inherit;">' . wc_price($minPrice_cut) . ' per month</strong> , try it, love it, own it. <br/>Apply with <img src="' . $img . '" alt="Flexiown" class="float-logo" style="width: 70px;vertical-align: middle;"/> <a target="_blank" href="https://www.flexiown.co.za/">Learn more</a></div>');
             }
         }
     }
@@ -244,7 +244,7 @@ function display_flexiown_cart_blocks() {
                                     response.data.message + 
                                     '<strong class="flexiown-highlight" style="color: #ff003e !important;font-size: inherit;font-weight: inherit;">' + 
                                     response.data.price + ' per month</strong>, try it, love it, own it. <br/>' +
-                                    'Apply with <img src="<?php echo $img; ?>" alt="Flexiown" class="flexi-cart-logo" style="width: 70px;vertical-align: baseline;"/> ' +
+                                    'Apply with <img src="<?php echo $img; ?>" alt="Flexiown" class="flexi-cart-logo" style="width: 70px;vertical-align: middle;"/> ' +
                                     '<a target="_blank" href="https://www.flexiown.co.za/">Learn more</a></div>';
                                 
                                 if (insertMethod === 'append') {
