@@ -1177,7 +1177,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             'trust_value' => hash('md5', $order_id),
             'trust_seed' => $order->get_meta('flexiown_trust_seed', true),
             'success_redirect_url' => $this->get_return_url($order) . '&order_id=' . $order_id . '&wc-api=WC_Gateway_Flexiown',
-            'failure_redirect_url' => $this->get_return_url($order) . '&status=cancelled&wc-api=WC_Gateway_Flexiown',
+            'failure_redirect_url' => $this->get_return_url($order) . '&order_id=' . $order_id . '&wc-api=WC_Gateway_Flexiown',
             'final_amount' => number_format($order->get_total(), 2, '.', ''),
             'tax_amount' => $order->get_total_tax(),
             'shipping_amount' => $shipping_total,
