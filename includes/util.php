@@ -296,7 +296,12 @@ function get_flexiown_cart_info_ajax() {
     
     if (isset($woocommerce->cart->cart_contents) && count($woocommerce->cart->cart_contents) >= 1) {
         $showFlexiown = true;
-        $response = $gateway->api_bulk_product_lookup($woocommerce->cart->cart_contents);
+        $cache_key = 'flexiown_lookup_' . WC()->cart->get_cart_hash();
+        $response = WC()->session->get($cache_key);
+        if (!$response) {
+            $response = $gateway->api_bulk_product_lookup($woocommerce->cart->cart_contents);
+            WC()->session->set($cache_key, $response);
+        }
         
         if (!$response || (isset($response->statusCode) && $response->statusCode == 500)) {
             wp_send_json_error();
@@ -346,7 +351,12 @@ function get_flexiown_cart_warnings_ajax() {
     $flexiown_items = array();
     
     // issue the cart to the api so we can get back a list of what is accepted and what is not
-    $items = $gateway->api_bulk_product_lookup(WC()->cart->get_cart());
+    $cache_key = 'flexiown_lookup_' . WC()->cart->get_cart_hash();
+    $items = WC()->session->get($cache_key);
+    if (!$items) {
+        $items = $gateway->api_bulk_product_lookup(WC()->cart->get_cart());
+        WC()->session->set($cache_key, $items);
+    }
     //ex!$items || (isset($items->statusCode) && $items->statusCode == 500)
     if ($items->statusCode !== null && $items->statusCode == 500) {
         wp_send_json_error();

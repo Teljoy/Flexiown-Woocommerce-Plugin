@@ -1649,7 +1649,12 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
         if (isset($woocommerce->cart->cart_contents) && count($woocommerce->cart->cart_contents) >= 1) {
             $showFlexiown = true;
-            $response = $this->api_bulk_product_lookup($woocommerce->cart->cart_contents);
+            $cache_key = 'flexiown_lookup_' . WC()->cart->get_cart_hash();
+            $response = WC()->session->get($cache_key);
+            if (!$response) {
+                $response = $this->api_bulk_product_lookup($woocommerce->cart->cart_contents);
+                WC()->session->set($cache_key, $response);
+            }
 
             foreach ($response as $item) {
                 if ($item->accepted == false) {
