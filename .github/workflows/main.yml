@@ -1,0 +1,24 @@
+name: Build Plugin ZIP
+
+on:
+  push:
+    branches:
+      - main 
+
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create ZIP
+        run: zip -r flexiown-gateway.zip . -x "*.git*" -x ".github/*" -x "*.zip"
+
+      - name: Commit ZIP
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add flexiown-gateway.zip
+          git diff --staged --quiet || git commit -m "chore: update plugin ZIP"
+          git push
