@@ -117,6 +117,7 @@ Notes:
 - Admin: `includes/admin/settings.php`, `menu.php`, `config.php`
 - Elementor: `includes/elementor-widgets/` and `class-flexiown-elementor.php` (conditional load)
 - Legacy teljoy plugin: `teljoy-woocommerce-payment-gateway/` remains in repo for reference (first plugin).
+- Manually run the github action "Run Update version and ZIP" to update the version number and release a new zip file. This deploys the change so wordpress can pick it up and update the plugin
 
 ## Shortcodes
 - `[flexiown_widget]` — product widget (renders Flexiown price and link). Can be used in page builders or in templates when `is_using_page_builder` is enabled.
