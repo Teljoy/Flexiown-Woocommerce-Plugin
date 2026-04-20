@@ -192,7 +192,7 @@ require FLEXIOWN_PLUGIN_PATH . 'plugin-update-checker/plugin-update-checker.php'
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
 $myUpdateChecker = PucFactory::buildUpdateChecker(
-	'https://github.com/Teljoy/Fleixiown-Woocommerce-Plugin/raw/refs/heads/main/info.json',
+	'https://github.com/Teljoy/Flexiown-Woocommerce-Plugin/raw/refs/heads/main/info.json',
 	__FILE__, //Full path to the main plugin file or functions.php.
 	'woocommerce-flexiown-teljoy'
 );
