@@ -1,0 +1,46 @@
+name: Update version and ZIP
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bump patch version
+        run: |
+          CURRENT_VERSION=$(grep "define('FLEXIOWN_VERSION'" teljoy-flexiown.php | grep -oP "\d+\.\d+\.\d+")
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+          echo "Bumping version: $CURRENT_VERSION → $NEW_VERSION"
+
+          # Update teljoy-flexiown.php
+          sed -i "s/\* Version: $CURRENT_VERSION/* Version: $NEW_VERSION/" teljoy-flexiown.php
+          sed -i "s/define('FLEXIOWN_VERSION', '$CURRENT_VERSION')/define('FLEXIOWN_VERSION', '$NEW_VERSION')/" teljoy-flexiown.php
+
+          # Update version field in info.json
+          sed -i "s/\"version\" : \"$CURRENT_VERSION\"/\"version\" : \"$NEW_VERSION\"/" info.json
+
+          # Prepend new changelog entry in info.json
+          NEW_ENTRY="<h4>$NEW_VERSION<\/h4><ul><li>See commit history<\/li><\/ul>"
+          sed -i "s/\"changelog\": \"/\"changelog\": \"$NEW_ENTRY/" info.json
+
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+      - name: Create ZIP
+        run: zip -r teljoy-flexiown.zip . -x "*.git*" -x ".github/*" -x "*.zip"
+
+      - name: Commit version bump and ZIP
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add teljoy-flexiown.php info.json teljoy-flexiown.zip
+          git diff --staged --quiet || git commit -m "chore: bump version to ${{ env.NEW_VERSION }} and update ZIP"
+          git push
