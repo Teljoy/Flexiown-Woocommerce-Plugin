@@ -8,7 +8,7 @@ This README documents the upgrade from the original Teljoy gateway (`teljoy-wooc
 - Core changes:
   - Improved log parsing and a `/wp-json/fo/v1/logbook` endpoint that reads WooCommerce log files named `*flexiown*.log`.
   - Moved inline JS out of cart notices (now printed in footer) to avoid rendering script text inside notice boxes.
-  - Visual fixes: CSS fallbacks for rejected cart rows (legacy & blocks), improved blocks-cart matching.
+  - Visual fixes: CSS fallbacks for rejected cart rows (legacy & blocks), improved blocks-cart matching. 
   - Elementor integration: new widget category "Flexiown" with two widgets that render the existing shortcodes.
   - REST endpoints for stores and orders; orders endpoint returns only orders paid/initiated via Flexiown and includes Flexiown custom fields.
   - Security/hardening: transaction payloads now constructed securely (sanitized and `json_encode()`), REST endpoints use header auth (X-API-Key) where configured.
