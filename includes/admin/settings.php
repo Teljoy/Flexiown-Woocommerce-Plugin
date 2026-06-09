@@ -946,7 +946,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
                     'name' => "string"
                 ),
                 'images' => array(
-                    wp_get_attachment_image_src(get_post_thumbnail_id($item['product_id']), 'single-post-thumbnail')[0]
+                    ($img = wp_get_attachment_image_src(get_post_thumbnail_id($item['product_id']), 'single-post-thumbnail')) ? $img[0] : ''
                 ),
                 'barcodes' => array(
                     get_post_meta(self::get_order_prop($product, 'id'), 'flexiown_barcode', true)
@@ -1147,11 +1147,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             'confirmed' => false
         );
 
-        // Create the seed value base exactly as before
         $seed_value_base = json_encode($items, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        foreach ($items as $item) {
-            $seed_value_base .= $item[0];
-        }
 
         // Store the trust seed in order meta (same as before)
         $order->update_meta_data('flexiown_trust_seed', base64_encode($seed_value_base));
@@ -1168,7 +1164,9 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         $store_id = get_option('active_store_location');
         if ($store_id) {
             $store = get_post($store_id);
-            $active_store_location = $store->post_title;
+            if ($store) {
+                $active_store_location = $store->post_title;
+            }
         }
 
         // Create redirects object with sanitized data
@@ -1656,10 +1654,14 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
                 WC()->session->set($cache_key, $response);
             }
 
-            foreach ($response as $item) {
-                if ($item->accepted == false) {
-                    $showFlexiown = false;
+            if (is_array($response) || is_object($response)) {
+                foreach ($response as $item) {
+                    if ($item->accepted == false) {
+                        $showFlexiown = false;
+                    }
                 }
+            } else {
+                $showFlexiown = false;
             }
 
 
@@ -1675,55 +1677,40 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
     public function generate_product_payload($obj)
     {
-        //removed for testing
-        // "description": "' . esc_html($data['description']) . '",
-        // "short_description": "' . esc_html($data['short_description']) . '",
-
         $data = $obj->get_data();
-        $item = '{
-			"name": "' . esc_html($data['name']) . '",
-			"brand": "string",
-			"merchant_product_id":"' . $data['id'] . '",
-			"quantity": "1",
-			"vendor": {
-			  "vendor_id": "string",
-			  "url": "string",
-			  "name": "string"
-			},
-			"images": [
-			  "' . wp_get_attachment_image_src($data['image_id'])[0] . '" 
-			],
-			"url": "string",
-			"price": "' . $data['price'] . '",
-			"sku": "' . $data['sku'] . '",
-			"barcodes": [
-			  "' . get_post_meta($data['id'], 'flexiown_barcode', true)  . '"
-			],
-			"categories": [';
-        foreach ($data['category_ids'] as $cat) {
-            $item .= '
-				  {
-					"id": "' . $cat . '",
-					"name": "' . get_the_category_by_ID($cat) . '",
-					"url": "string"
-				  },';
+
+        $img = wp_get_attachment_image_src($data['image_id']);
+
+        $categories = [];
+        if (!empty($data['category_ids'])) {
+            foreach ($data['category_ids'] as $cat) {
+                $categories[] = [
+                    'id'   => (string) $cat,
+                    'name' => get_the_category_by_ID($cat),
+                    'url'  => 'string',
+                ];
+            }
         }
-        $item = rtrim($item, ",");
-        $item .= '],
-			"properties": [
-			  {
-				"key": "string",
-				"value": "string"
-			  }
-			]
-		  }
-		';
-        return $item;
+
+        return [
+            'name'                => $data['name'],
+            'brand'               => 'string',
+            'merchant_product_id' => (string) $data['id'],
+            'quantity'            => '1',
+            'vendor'              => ['vendor_id' => 'string', 'url' => 'string', 'name' => 'string'],
+            'images'              => [$img ? $img[0] : ''],
+            'url'                 => 'string',
+            'price'               => (string) $data['price'],
+            'sku'                 => (string) $data['sku'],
+            'barcodes'            => [get_post_meta($data['id'], 'flexiown_barcode', true)],
+            'categories'          => $categories,
+            'properties'          => [['key' => 'string', 'value' => 'string']],
+        ];
     }
 
     public function api_product_lookup($payload, $product_id)
     {
-        $payload = $this->generate_product_payload($payload);
+        $payload = json_encode($this->generate_product_payload($payload));
         $this->flexiown_log('POST product lookup: ' . print_r($payload, true), false);
 
         $response = wp_remote_post($this->validate_url, array(
@@ -1764,13 +1751,11 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
 
     public function api_bulk_product_lookup($list)
     {
-
-        $payload = '[';
+        $items = [];
         foreach ($list as $item) {
-            $payload .= $this->generate_product_payload($item['data']) . ',';
+            $items[] = $this->generate_product_payload($item['data']);
         }
-        $payload = rtrim($payload, ",");
-        $payload .= ']';
+        $payload = json_encode($items);
 
 
         $response = wp_remote_post(
@@ -1778,15 +1763,14 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             $this->get_api_args('POST', $payload)
         );
 
+        if (is_wp_error($response)) {
+            return false;
+        }
+
         $result = json_decode(wp_remote_retrieve_body($response));
         $this->flexiown_log('POST lookup response: ' . print_r($result, true), false);
 
-
-        if (is_wp_error($result)) {
-            return false;
-        } else {
-            return $result;
-        }
+        return $result;
     }
 
     public function order_status_change_update($order)
@@ -1799,10 +1783,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             $items = $this->build_product_list($orderitems);
         }
 
-        $seed_value_base = '';
-        foreach ($items as $item) {
-            $seed_value_base .= $item[0];
-        }
+        $seed_value_base = json_encode($items, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $alt_trust_value = base64_encode($seed_value_base);
 
         $payload = '{

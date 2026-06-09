@@ -135,19 +135,13 @@ class FLEXIOWN_PLUGIN
 
         // Register Blocks support if WooCommerce Blocks is active
         add_action('woocommerce_blocks_loaded', function() {
-            error_log('Flexiown: woocommerce_blocks_loaded action fired');
-            
-            // Register the blocks integration
+             // Register the blocks integration
             add_action('woocommerce_blocks_payment_method_type_registration', function($payment_method_registry) {
-                error_log('Flexiown: woocommerce_blocks_payment_method_type_registration action fired');
-                
                 // Include the blocks support class
                 if (!class_exists('WC_Gateway_Flexiown_Blocks_Support')) {
                     require_once FLEXIOWN_PLUGIN_PATH . 'includes/class-flexiown-blocks-support.php';
                 }
-                
                 $payment_method_registry->register(new WC_Gateway_Flexiown_Blocks_Support());
-                error_log('Flexiown: Blocks support registered');
             });
         });
     }
