@@ -1175,7 +1175,7 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             'trust_value' => hash('md5', $order_id),
             'trust_seed' => $order->get_meta('flexiown_trust_seed', true),
             'success_redirect_url' => $this->get_return_url($order) . '&order_id=' . $order_id . '&wc-api=WC_Gateway_Flexiown',
-            'failure_redirect_url' => $this->get_return_url($order) . '&status=cancelled&wc-api=WC_Gateway_Flexiown',
+            'failure_redirect_url' => $this->get_return_url($order) . '&order_id=' . $order_id . '&status=cancelled&wc-api=WC_Gateway_Flexiown',
             'final_amount' => number_format($order->get_total(), 2, '.', ''),
             'tax_amount' => $order->get_total_tax(),
             'shipping_amount' => $shipping_total,
@@ -1431,8 +1431,8 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
         $this->flexiown_log('Checkout page triggered: ', true);
 
         //01: first we must ensure the status and trust value is present and our request is from flexiown
-        if ($this->verify_redirect_params === 'yes') {
-            if (!$_GET['status'] || !$_GET['trust_signature'] || !$_GET['order_id']) {
+        if ($this->verify_redirect_params) {
+            if (empty($_GET['status']) || empty($_GET['order_id'])) {
                 $this->flexiown_log('Security Warning: missing query params' . print_r($_GET, true), true);
                 $this->flexiown_log('Security Warning: attempt to trigger payment processor' . print_r($_SERVER, true), true);
                 wp_redirect('/');
@@ -1440,9 +1440,13 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             }
         }
 
-
         //02: fetch the transaction
-        $order = wc_get_order($_GET['order_id']);
+        $order = empty($_GET['order_id']) ? false : wc_get_order($_GET['order_id']);
+        if (!$order) {
+            $this->flexiown_log('Security Warning: no valid order found for order_id ' . print_r($_GET['order_id'] ?? null, true), true);
+            wp_redirect('/');
+            exit;
+        }
         $this->flexiown_log('Verifying transaction status part 01 ' . print_r(self::get_order_prop($order, 'status')), true);
 
         //03: verify transaction against flexiown api
@@ -1470,23 +1474,42 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             exit;
         }
 
-        //06: process the transaction based on the new status
-        if ($state->status === 'confirmed' || $state->status === 'complete') {
-            $this->handle_api_payment_complete($state, $order);
-        } elseif ($state->status  === 'failed') {
-            $this->handle_api_payment_failed($state, $order);
-        } elseif ($state->status  === 'pending') {
-            $this->handle_api_payment_pending($state, $order);
-        } elseif ($state->status  === 'cancelled') {
-            $this->handle_api_payment_cancelled($state, $order);
+         //06: process the transaction based on the new status
+        //    guard against this endpoint firing more than once for the same status
+        //    (Flexiown may both redirect the browser here and call it again later)
+        $already_processed = $order->get_meta('flexiown_last_processed_state', true) === $state->status;
+        if (!$already_processed) {
+            $order->update_meta_data('flexiown_last_processed_state', $state->status);
+            $order->save();
         }
 
-        //05: complete the process
-        $payment_page = $this->get_return_url($order) . '&status=' . $state->status;
-        wp_redirect($payment_page);
+        if ($state->status === 'confirmed' || $state->status === 'complete') {
+            if (!$already_processed) {
+                $this->handle_api_payment_complete($state, $order);
+            }
+            wp_redirect($this->get_return_url($order));
+        } elseif ($state->status === 'pending') {
+            if (!$already_processed) {
+                $this->handle_api_payment_pending($state, $order);
+            }
+            wp_redirect($this->get_return_url($order));
+        } elseif ($state->status === 'failed') {
+            if (!$already_processed) {
+                $this->handle_api_payment_failed($state, $order);
+                wc_add_notice(__('Your Flexiown payment was declined. Please try again or choose a different payment method.', 'woo_flexiown'), 'error');
+            }
+            wp_redirect($order->get_checkout_payment_url());
+        } elseif ($state->status === 'cancelled') {
+            if (!$already_processed) {
+                $this->handle_api_payment_cancelled($state, $order);
+                wc_add_notice(__('Your Flexiown payment was cancelled.', 'woo_flexiown'), 'notice');
+            }
+            wp_redirect(wc_get_cart_url());
+        } else {
+            $this->flexiown_log('check_api_response: unrecognized status: ' . $state->status, true);
+            wp_redirect($this->get_return_url($order));
+        }
         exit;
-        header('HTTP/1.0 200 OK');
-        flush();
     }
 
 
@@ -1599,9 +1622,13 @@ class WC_Gateway_Flexiown extends WC_Payment_Gateway
             $this->status_url . $transaction_id,
             $this->get_api_args('GET')
         );
+        if (is_wp_error($verify_transaction)) {
+            $this->flexiown_log('transaction status request failed: ' . $verify_transaction->get_error_message(), false);
+            return false;
+        }
         $status = json_decode(wp_remote_retrieve_body($verify_transaction));
         $this->flexiown_log('transaction status: ' . print_r($status, true), false);
-        if (is_wp_error($status)) {
+        if (empty($status) || !isset($status->order_id)) {
             return false;
         }
         //is this a valid response
