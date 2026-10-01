@@ -447,18 +447,32 @@ function woo_flexiown_frontend_widget()
         return '';
     }
 
-    try {
-        $flexiown_price = $gateway->api_product_lookup($product, $product->get_id());
-    } catch (Exception $e) {
-        $flexiown_price = false;
+    $is_variable = $product->is_type('variable');
+
+    if ($is_variable) {
+        // Variable product: skip parent SKU lookup — JS will auto-select first variation on load.
+        $initial_price = '';
+        $price_visible = 'style="display:none;"';
+    } else {
+        // Simple product: call API on page load as normal.
+        try {
+            $flexiown_price = $gateway->api_product_lookup($product, $product->get_id());
+        } catch (Exception $e) {
+            $flexiown_price = false;
+        }
+        if (!$flexiown_price) {
+            return '';
+        }
+        $initial_price = 'R' . $flexiown_price->price . ',00 per month';
+        $price_visible = '';
     }
-    if ($flexiown_price) {
-        return '
+
+    return '
         <div class="flexiown">
             <div id="flexiowntext">
                 <img id="flexiownCalculatorWidgetLogo" width="100px" height="auto" src="' . FLEXIOWN_PLUGIN_URL . 'assets/media/flexiown_logo.svg"/>
             </div>
-            <p class="flexiown-copy">Or, From only <b>R' . $flexiown_price->price . ',00 per month</b>, try it, love it, own it. Apply with Flexiown.
+            <p class="flexiown-copy" ' . $price_visible . '>Or, From only <b id="flexiown-monthly-price">' . $initial_price . '</b>, try it, love it, own it. Apply with Flexiown.
             <br><a href="#" id="openModal">Learn more</a></p>
         </div>
         <div id="flexiownModal" class="modal">
@@ -533,9 +547,6 @@ function woo_flexiown_frontend_widget()
 				font-weight: bold;
 			}
         </style>';
-    } else {
-        return '';
-    }
 }
 
 
