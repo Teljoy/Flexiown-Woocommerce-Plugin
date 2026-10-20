@@ -127,7 +127,6 @@ class FLEXIOWN_PLUGIN
         require_once FLEXIOWN_PLUGIN_PATH . 'includes/webhooks.php';
         require_once FLEXIOWN_PLUGIN_PATH . 'includes/class-flexiown-elementor.php';
         require_once FLEXIOWN_PLUGIN_PATH . 'includes/variant-selector.php';
-        require_once FLEXIOWN_PLUGIN_PATH . 'includes/variant-pricing.php';
 
         // Initialize the payment gateway
         add_filter('woocommerce_payment_gateways', function ($gateways) {
