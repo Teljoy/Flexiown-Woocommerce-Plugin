@@ -19,6 +19,21 @@ add_action( 'wp_head', function() {
         .flexi-variant-field { margin-bottom: 12px; }
         .flexi-variant-field label { display: block; margin-bottom: 10px; font-weight: 600; }
         .flexi-proxy-select { width: 100%; padding: 8px; }
+        .flexiown-price-loader {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            padding: 4px;
+            border: 3px solid #e0e0e0;
+            border-top-color: #5bbf83;
+            border-radius: 50%;
+            margin-top: -2px;
+            animation: flexiown-spin 0.8s linear infinite;
+            vertical-align: middle;
+        }
+        @keyframes flexiown-spin {
+            to { transform: rotate(360deg); }
+        }
     </style>';
 });
 
@@ -138,13 +153,25 @@ add_action( 'wp_footer', function() {
 
             $vform.on('found_variation.flexiown', function(e, v) {
                 if (!v.variation_id) return;
-                $priceEl.text('...');
+                $priceEl.html('<span class="flexiown-price-loader"></span>');
                 $copy.show();
                 $btns.prop('disabled', true).css('opacity', '0.5');
                 $.post('<?php echo $ajax_url; ?>', { action: 'flexiown_variation_price', variation_id: v.variation_id })
-                    .done(function(r) { r.success ? $priceEl.text('R' + r.data.price + ',00 per month') : $copy.hide(); })
-                    .fail(function() { $copy.hide(); })
-                    .always(function() { $btns.prop('disabled', false).css('opacity', '1'); });
+                    .done(function(r) {
+                        if (r.success && r.data.price) {
+                            $priceEl.text('R' + r.data.price + ',00 per month');
+                            $btns.prop('disabled', false).css('opacity', '1');
+                        } else {
+                            // API returned no price - show placeholder, keep button disabled
+                            $priceEl.html('<span style="color:#999;font-style:italic;">Price unavailable</span>');
+                            // Button stays disabled
+                        }
+                    })
+                    .fail(function() {
+                        // Network error - show placeholder, keep button disabled
+                        $priceEl.html('<span style="color:#999;font-style:italic;">Price unavailable</span>');
+                        // Button stays disabled
+                    });
             });
             // Clear the price display when the customer changes or clears their selection
             $vform.on('reset_data.flexiown', function() { $copy.hide(); $priceEl.text(''); });
